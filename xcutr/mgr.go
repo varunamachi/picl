@@ -2,8 +2,8 @@ package xcutr
 
 import (
 	"errors"
-	"fmt"
 	"io"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -64,17 +64,20 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 
 func (cm *CmdMan) Exec(cmd string) error {
 	failed := 0
+	var wg sync.WaitGroup
+	wg.Add(len(cm.conns))
 	for _, conn := range cm.conns {
-		fmt.Fprintf(cm.io.Out, "_________%s_________\n", conn.Name())
-		if err := conn.Exec(cmd, &cm.io); err != nil {
-			// logrus.WithError(err).WithFields(logrus.Fields{
-			// 	"target": conn.Name(),
-			// 	"cmd":    cmd,
-			// }).Error("Command failed")
-			failed++
-		}
-		fmt.Fprintf(cm.io.Out, "\n\n")
+		conn := conn
+		go func() {
+			if err := conn.Exec(cmd, &cm.io); err != nil {
+				failed++
+			}
+			// fmt.Fprintf(cm.io.Out, "\n\n")
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
 	if failed != 0 {
 		return NewErrf(ErrCmdExec,
 			"Failed to execute command on %d targets", failed)
@@ -84,17 +87,20 @@ func (cm *CmdMan) Exec(cmd string) error {
 
 func (cm *CmdMan) ExecSudo(cmd string) error {
 	failed := 0
+	var wg sync.WaitGroup
+	wg.Add(len(cm.conns))
 	for _, conn := range cm.conns {
-		fmt.Fprintf(cm.io.Out, "[SUDO] === %s ===\n", conn.Name())
-		if err := conn.ExecSudo(
-			cmd, cm.config.SudoPass, &cm.io); err != nil {
-			// logrus.WithError(err).WithFields(logrus.Fields{
-			// 	"target": conn.Name(),
-			// 	"cmd":    cmd,
-			// }).Error("Sudo Command failed")
-			failed++
-		}
+		conn := conn
+		go func() {
+			if err := conn.ExecSudo(
+				cmd, cm.config.SudoPass, &cm.io); err != nil {
+				failed++
+			}
+			// fmt.Fprintf(cm.io.Out, "\n\n")
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 	if failed != 0 {
 		return NewErrf(ErrCmdExec,
 			"Failed to execute sudo command on %d targets", failed)

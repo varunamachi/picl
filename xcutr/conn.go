@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/varunamachi/clusterfox/cfx"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
@@ -109,8 +110,8 @@ func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 		return err
 	}
 	defer closeSession(sess)
-	sess.Stdout = stdIO.Out
-	sess.Stderr = stdIO.Err
+	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out)
+	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err)
 	sess.Stdin = stdIO.In
 	if err := sess.Run(cmd); err != nil {
 		// logrus.WithError(err).WithField("cmd", cmd).
@@ -127,8 +128,8 @@ func (conn *SshConn) ExecSudo(cmd, sudoPass string, stdIO *StdIO) error {
 	}
 
 	cmd = "sudo -S " + cmd
-	sess.Stdout = stdIO.Out
-	sess.Stderr = stdIO.Err
+	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out)
+	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err)
 	fmt.Fprintln(sess.Stderr)
 	sess.Stdin = strings.NewReader(sudoPass)
 	if err := sess.Run(cmd); err != nil {
@@ -201,11 +202,7 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 }
 
 func getPasswordConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
+	home := cfx.MustGetUserHome()
 	khFile := filepath.Join(home, ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(khFile)
 	if err != nil {
