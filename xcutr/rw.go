@@ -4,25 +4,24 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	fc "github.com/fatih/color"
 )
 
 type nodeWriter struct {
-	name  string
-	inner io.Writer
+	name      string
+	inner     io.Writer
+	colorFunc func(a ...interface{}) string
 }
 
 func (cw *nodeWriter) Write(data []byte) (int, error) {
-	// cw.inner.Write([]byte("[" + cw.name + "]  "))
-
-	name := cw.name
-	if len(name) > 10 {
-		name = name[:10]
-	}
-
 	strData := string(data)
 	lines := strings.Split(strData, "\n")
 	for _, ln := range lines {
-		_, err := fmt.Fprintf(cw.inner, "%12s | %s\n", name, ln)
+		if ln == "" || strings.Contains(ln, "[sudo] password for") {
+			continue
+		}
+		_, err := fmt.Fprintf(cw.inner, "%s | %2s\n", cw.colorFunc(cw.name), ln)
 		if err != nil {
 			return 0, err
 		}
@@ -30,9 +29,21 @@ func (cw *nodeWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func NewNodeWriter(name string, target io.Writer) io.Writer {
+func NewNodeWriter(
+	name string, target io.Writer, color fc.Attribute) io.Writer {
+	if len(name) < 10 {
+		name = fmt.Sprintf("%10s", name)
+	} else {
+		name = fmt.Sprintf("%8s..", name[:8])
+	}
 	return &nodeWriter{
-		name:  name,
-		inner: target,
+		name:      name,
+		inner:     target,
+		colorFunc: fc.New(color).SprintFunc(),
 	}
 }
+
+// type sudoReader struct {
+// 	password string
+// 	done     bool
+// }

@@ -5,11 +5,13 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 
+	fc "github.com/fatih/color"
 	"github.com/sirupsen/logrus"
 	"github.com/varunamachi/clusterfox/cfx"
 	"golang.org/x/crypto/ssh"
@@ -32,6 +34,7 @@ type SshConnOpts struct {
 	// SudoPass  string            `json:"sudoPass"`
 	AuthMehod SshAuthMethod     `json:"authMethod"`
 	AuthData  map[string]string `json:"authData"`
+	Color     string            `json:"color"`
 }
 
 func (opts *SshConnOpts) String() string {
@@ -110,8 +113,8 @@ func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 		return err
 	}
 	defer closeSession(sess)
-	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out)
-	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err)
+	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out, color(conn.opts.Color))
+	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err, color(conn.opts.Color))
 	sess.Stdin = stdIO.In
 	if err := sess.Run(cmd); err != nil {
 		// logrus.WithError(err).WithField("cmd", cmd).
@@ -128,10 +131,11 @@ func (conn *SshConn) ExecSudo(cmd, sudoPass string, stdIO *StdIO) error {
 	}
 
 	cmd = "sudo -S " + cmd
-	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out)
-	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err)
+	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out, color(conn.opts.Color))
+	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err, color(conn.opts.Color))
 	fmt.Fprintln(sess.Stderr)
 	sess.Stdin = strings.NewReader(sudoPass)
+
 	if err := sess.Run(cmd); err != nil {
 		// logrus.WithError(err).WithField("cmd", cmd).
 		// 	Error("Command execution failed")
@@ -219,4 +223,55 @@ func getPasswordConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 		HostKeyCallback: hostKeyCallback,
 	}, nil
 
+}
+
+func color(color string) fc.Attribute {
+	switch color {
+	case "red":
+		return fc.FgRed
+	case "green":
+		return fc.FgGreen
+	case "yellow":
+		return fc.FgYellow
+	case "blue":
+		return fc.FgBlue
+	case "magenta":
+		return fc.FgMagenta
+	case "cyan":
+		return fc.FgCyan
+	case "white":
+		return fc.FgWhite
+	}
+
+	switch rand.Intn(10) {
+	case 1:
+		return fc.FgRed
+	case 2:
+		return fc.FgGreen
+	case 3:
+		return fc.FgYellow
+	case 4:
+		return fc.FgBlue
+	case 5:
+		return fc.FgMagenta
+	case 6:
+		return fc.FgCyan
+	case 7:
+		return fc.FgWhite
+	case 8:
+		return fc.BgRed
+	case 9:
+		return fc.BgGreen
+	case 10:
+		return fc.BgYellow
+	case 11:
+		return fc.BgBlue
+	case 12:
+		return fc.BgMagenta
+	case 13:
+		return fc.BgCyan
+	case 14:
+		return fc.BgWhite
+	}
+	return fc.FgWhite
 }
