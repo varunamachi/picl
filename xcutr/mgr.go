@@ -30,15 +30,6 @@ type CmdMan struct {
 	io     StdIO
 }
 
-// func NewCmdManFromConfigFile(
-// 	configPath string, stdIO StdIO) (*CmdMan, error) {
-// 	var config Config
-// 	if err := cfx.LoadJsonFile(configPath, config); err != nil {
-// 		return nil, err
-// 	}
-// 	return NewCmdMan(&config, stdIO)
-// }
-
 func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 	conns := make([]*SshConn, 0, len(config.Opts))
 	for _, opts := range config.Opts {
@@ -62,17 +53,42 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 	}, nil
 }
 
+func (cm *CmdMan) Include(nodes map[string]struct{}) *CmdMan {
+	if len(nodes) == 0 {
+		return cm
+	}
+	for _, conn := range cm.conns {
+		_, found := nodes[conn.Name()]
+		conn.disabled = !found
+	}
+	return cm
+}
+
+func (cm *CmdMan) Exclude(nodes map[string]struct{}) *CmdMan {
+	if len(nodes) == 0 {
+		return cm
+	}
+	for _, conn := range cm.conns {
+		_, found := nodes[conn.Name()]
+		conn.disabled = found
+	}
+	return cm
+}
+
 func (cm *CmdMan) Exec(cmd string) error {
 	failed := 0
 	var wg sync.WaitGroup
 	wg.Add(len(cm.conns))
 	for _, conn := range cm.conns {
+		if conn.disabled {
+			wg.Done()
+			continue
+		}
 		conn := conn
 		go func() {
 			if err := conn.Exec(cmd, &cm.io); err != nil {
 				failed++
 			}
-			// fmt.Fprintf(cm.io.Out, "\n\n")
 			wg.Done()
 		}()
 	}
@@ -90,6 +106,10 @@ func (cm *CmdMan) ExecSudo(cmd string) error {
 	var wg sync.WaitGroup
 	wg.Add(len(cm.conns))
 	for _, conn := range cm.conns {
+		if conn.disabled {
+			wg.Done()
+			continue
+		}
 		conn := conn
 		go func() {
 			if err := conn.ExecSudo(
@@ -105,5 +125,17 @@ func (cm *CmdMan) ExecSudo(cmd string) error {
 		return NewErrf(ErrCmdExec,
 			"Failed to execute sudo command on %d targets", failed)
 	}
+	return nil
+}
+
+func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
+	return nil
+}
+
+func (cm *CmdMan) Push(localPath, remotePath string) error {
+	return nil
+}
+
+func (cm *CmdMan) Replicate(node, remotePath string) error {
 	return nil
 }

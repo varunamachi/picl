@@ -62,7 +62,8 @@ func (opts *SshConnOpts) FillDefaults() {
 type SshConn struct {
 	opts *SshConnOpts
 	// session *ssh.Session
-	client *ssh.Client
+	client   *ssh.Client
+	disabled bool
 }
 
 func NewConn(opts *SshConnOpts) (*SshConn, error) {
