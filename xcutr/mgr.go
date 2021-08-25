@@ -91,7 +91,7 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 // }
 
 func (cm *CmdMan) connList(opts *ExecOpts) []*SshConn {
-	if len(opts.Included) != 0 && len(opts.Excluded) != 0 {
+	if len(opts.Included) == 0 && len(opts.Excluded) == 0 {
 		return cm.conns
 	}
 
