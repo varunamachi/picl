@@ -20,13 +20,13 @@ func GetCommands() []*cli.Command {
 			Flags:        withCommonFlags(),
 			Action: func(ctx *cli.Context) error {
 
-				cmdMan, err := getCmdManager(ctx)
+				cmdMan, opts, err := getCmdMgrAndOpts(ctx)
 				if err != nil {
 					return err
 				}
 
 				cmd := strings.Join(ctx.Args().Slice(), " ")
-				if err := cmdMan.Exec(cmd); err != nil {
+				if err := cmdMan.Exec(cmd, opts); err != nil {
 					return err
 				}
 				return nil
@@ -39,13 +39,13 @@ func GetCommands() []*cli.Command {
 			BashComplete: cli.DefaultAppComplete,
 			Flags:        withCommonFlags(),
 			Action: func(ctx *cli.Context) error {
-				cmdMan, err := getCmdManager(ctx)
+				cmdMan, opts, err := getCmdMgrAndOpts(ctx)
 				if err != nil {
 					return err
 				}
 
 				cmd := strings.Join(ctx.Args().Slice(), " ")
-				if err := cmdMan.ExecSudo(cmd); err != nil {
+				if err := cmdMan.ExecSudo(cmd, opts); err != nil {
 					return err
 				}
 				return nil
@@ -55,7 +55,9 @@ func GetCommands() []*cli.Command {
 
 }
 
-func getCmdManager(ctx *cli.Context) (*xcutr.CmdMan, error) {
+func getCmdMgrAndOpts(ctx *cli.Context) (
+	*xcutr.CmdMan, *xcutr.ExecOpts, error) {
+
 	cfg := ctx.String("config")
 	only := ctx.String("only")
 	except := ctx.String("except")
@@ -73,20 +75,27 @@ func getCmdManager(ctx *cli.Context) (*xcutr.CmdMan, error) {
 			WithError(err).
 			WithField("config", cfg).
 			Error("Failed to load config")
-		return nil, err
+		return nil, nil, err
 	}
 
-	cmdMan, err := xcutr.NewCmdMan(&config, xcutr.StdIO{
+	cmdMgr, err := xcutr.NewCmdMan(&config, xcutr.StdIO{
 		Out: os.Stdout,
 		Err: os.Stderr,
 		In:  os.Stdin,
 	})
+
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	include := parseCommaSeperated(only)
-	exclude := parseCommaSeperated(except)
-	return cmdMan.Exclude(exclude).Include(include), nil
+
+	execOpts := xcutr.ExecOpts{}
+	if only != "" {
+		execOpts.Included = strings.Split(only, ",")
+	}
+	if except != "" {
+		execOpts.Excluded = strings.Split(except, ",")
+	}
+	return cmdMgr, &execOpts, nil
 }
 
 func withCommonFlags(flags ...cli.Flag) []cli.Flag {
@@ -115,13 +124,13 @@ func withCommonFlags(flags ...cli.Flag) []cli.Flag {
 	return append(common, flags...)
 }
 
-func parseCommaSeperated(commaSeperatedStr string) map[string]struct{} {
-	vals := strings.Split(commaSeperatedStr, ",")
-	set := make(map[string]struct{})
-	for _, val := range vals {
-		if len(val) != 0 {
-			set[val] = struct{}{}
-		}
-	}
-	return set
-}
+// func parseCommaSeperated(commaSeperatedStr string) map[string]struct{} {
+// 	vals := strings.Split(commaSeperatedStr, ",")
+// 	set := make(map[string]struct{})
+// 	for _, val := range vals {
+// 		if len(val) != 0 {
+// 			set[val] = struct{}{}
+// 		}
+// 	}
+// 	return set
+// }
