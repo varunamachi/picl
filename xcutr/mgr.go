@@ -2,10 +2,13 @@ package xcutr
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/pkg/sftp"
 	"github.com/sirupsen/logrus"
 )
@@ -37,6 +40,19 @@ type CmdMan struct {
 type ExecOpts struct {
 	Included []string
 	Excluded []string
+	WithSudo bool
+}
+
+type ExistingFilePolicy int
+
+const (
+	Ignore ExistingFilePolicy = iota
+	Replace
+)
+
+type CopyOpts struct {
+	ExecOpts
+	DupFilePolicy ExistingFilePolicy
 }
 
 func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
@@ -133,7 +149,13 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 	for _, conn := range conns {
 		conn := conn
 		go func() {
-			if err := conn.Exec(cmd, &cm.io); err != nil {
+			var err error
+			if opts.WithSudo {
+				err = conn.ExecSudo(cmd, cm.config.SudoPass, &cm.io)
+			} else {
+				err = conn.Exec(cmd, &cm.io)
+			}
+			if err != nil {
 				failed++
 			}
 			wg.Done()
@@ -148,34 +170,34 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 	return nil
 }
 
-func (cm *CmdMan) ExecSudo(cmd string, opts *ExecOpts) error {
-	failed := 0
-	conns := cm.connList(opts)
-	if len(conns) == 0 {
-		logrus.Warn("Could find any node that satisfies current config")
-		return nil
-	}
+// func (cm *CmdMan) ExecSudo(cmd string, opts *ExecOpts) error {
+// 	failed := 0
+// 	conns := cm.connList(opts)
+// 	if len(conns) == 0 {
+// 		logrus.Warn("Could find any node that satisfies current config")
+// 		return nil
+// 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(conns))
-	for _, conn := range conns {
-		conn := conn
-		go func() {
-			if err := conn.ExecSudo(
-				cmd, cm.config.SudoPass, &cm.io); err != nil {
-				failed++
-			}
-			// fmt.Fprintf(cm.io.Out, "\n\n")
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	if failed != 0 {
-		return NewErrf(ErrCmdExec,
-			"Failed to execute sudo command on %d targets", failed)
-	}
-	return nil
-}
+// 	var wg sync.WaitGroup
+// 	wg.Add(len(conns))
+// 	for _, conn := range conns {
+// 		conn := conn
+// 		go func() {
+// 			if err := conn.ExecSudo(
+// 				cmd, cm.config.SudoPass, &cm.io); err != nil {
+// 				failed++
+// 			}
+// 			// fmt.Fprintf(cm.io.Out, "\n\n")
+// 			wg.Done()
+// 		}()
+// 	}
+// 	wg.Wait()
+// 	if failed != 0 {
+// 		return NewErrf(ErrCmdExec,
+// 			"Failed to execute sudo command on %d targets", failed)
+// 	}
+// 	return nil
+// }
 
 func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 	conn := cm.connMap[node]
@@ -224,37 +246,281 @@ func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 	return nil
 }
 
-func (cm *CmdMan) Push(localPath, remotePath string, opts *ExecOpts) error {
-	// local, err := os.Open(localPath)
-	// if err != nil {
-	// 	// TODO - log and stuff
-	// 	return err
-	// }
+func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 
-	// conns := cm.connList(opts)
-	// if len(conns) == 0 {
-	// 	logrus.Warn("Could find any node that satisfies current config")
-	// 	return nil
-	// }
+	remotePath := remoteDest
+	if opts.WithSudo {
+		tempName := uuid.NewString()
+		remotePath = "/tmp/" + tempName
+	}
 
-	// var wg sync.WaitGroup
-	// wg.Add(len(conns))
-	// for _, conn := range conns {
-	// 	conn := conn
-	// 	go func() {
-	// 		client, err := sftp.NewClient(conn.client)
-	// 	}()
-	// }
+	local, err := os.Open(localPath)
+	if err != nil {
+		// TODO - log and stuff
+		return err
+	}
+	defer local.Close()
 
-	// wg.Wait()
-	// if failed != 0 {
-	// 	return NewErrf(ErrCmdExec,
-	// 		"Failed to execute command on %d targets", failed)
-	// }
+	conns := cm.connList(&opts.ExecOpts)
+	if len(conns) == 0 {
+		logrus.Warn("Could find any node that satisfies current config")
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(conns))
+	failed := 0
+	for _, conn := range conns {
+		conn := conn
+		go func() {
+			defer wg.Done()
+			err := copy(conn, remotePath, opts.DupFilePolicy, local)
+			if err != nil {
+				failed++
+				return
+			}
+
+			if opts.WithSudo {
+				cmd := fmt.Sprintf("mv %s %s", remotePath, remoteDest)
+				if err := conn.ExecSudo(
+					cmd, cm.config.SudoPass, &cm.io); err != nil {
+					failed++
+					return
+				}
+
+				cmd = fmt.Sprintf("rm -f %s", remotePath)
+				if err := conn.Exec(cmd, &cm.io); err != nil {
+					failed++
+					return
+				}
+			}
+
+		}()
+	}
+
+	wg.Wait()
+	if failed != 0 {
+		return NewErrf(ErrCmdExec,
+			"Failed to perform push to %d targets", failed)
+	}
 
 	return nil
 }
 
-func (cm *CmdMan) Replicate(node, remotePath string) error {
+func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
+
+	conn := cm.connMap[node]
+	if conn == nil {
+		logrus.WithField("nodeName", node).
+			Error("Invalid source node name given")
+		return NewErrf(ErrInvalidNode,
+			"Invalid source node name given: %s", node)
+	}
+
+	client, err := sftp.NewClient(conn.client)
+	if err != nil {
+		const msg = "Failed to create SFTP client"
+		logrus.WithField("nodeName", node).Error(msg)
+		return NewErrf(ErrInvalidNode, msg)
+	}
+
+	source, err := client.Open(remoteDest)
+	if err != nil {
+		const msg = "Failed to open remote source file"
+		logrus.WithError(err).
+			WithFields(logrus.Fields{
+				"node":       conn.Name(),
+				"remotePath": remoteDest,
+			}).
+			Error(msg)
+		return NewErrf(ErrInvalidNode, msg)
+	}
+	defer source.Close()
+
+	conns := cm.connList(&opts.ExecOpts)
+	if len(conns) == 0 || (len(conns) == 1 && conns[0].Name() == node) {
+		logrus.Warn("Could find any node that satisfies current config")
+		return nil
+	}
+
+	remotePath := remoteDest
+	if opts.WithSudo {
+		tempName := uuid.NewString()
+		remotePath = "/tmp/" + tempName
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(conns))
+	failed := 0
+	for _, conn := range conns {
+		conn := conn
+		if conn.Name() == node {
+			// Dont do anything for source itself
+			wg.Done()
+			continue
+		}
+		go func() {
+			defer wg.Done()
+			err := copy(conn, remotePath, opts.DupFilePolicy, source)
+			if err != nil {
+				failed++
+				return
+			}
+
+			if opts.WithSudo {
+
+				parent := filepath.Dir(remoteDest)
+				cmd := fmt.Sprintf("mkdir -p %s", parent)
+				if err := conn.ExecSudo(
+					cmd, cm.config.SudoPass, &cm.io); err != nil {
+					failed++
+					return
+				}
+
+				cmd = fmt.Sprintf("mv %s %s", remotePath, remoteDest)
+				if err := conn.ExecSudo(
+					cmd, cm.config.SudoPass, &cm.io); err != nil {
+					failed++
+					return
+				}
+
+				cmd = fmt.Sprintf("rm -f %s", remotePath)
+				if err := conn.Exec(cmd, &cm.io); err != nil {
+					failed++
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	if failed != 0 {
+		return NewErrf(ErrCmdExec,
+			"Failed to perform replication on %d targets", failed)
+	}
+
+	return nil
+}
+
+func (cm *CmdMan) Remove(remotePath string, opts *ExecOpts) error {
+
+	conns := cm.connList(opts)
+	if len(conns) == 0 {
+		logrus.Warn("Could find any node that satisfies current config")
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(conns))
+	failed := 0
+	for _, conn := range conns {
+		conn := conn
+		go func() {
+			defer wg.Done()
+			client, err := sftp.NewClient(conn.client)
+			if err != nil {
+				logrus.WithError(err).
+					WithField("node", conn.Name()).
+					Error("Failed to create SFTP client")
+				failed++
+			}
+
+			if remoteExists(client, remotePath) {
+				if err = client.Remove(remotePath); err != nil {
+					const msg = "Failed to remove remote file"
+					logrus.WithError(err).
+						WithFields(logrus.Fields{
+							"node":       conn.Name(),
+							"remotePath": remotePath,
+						}).
+						Error(msg)
+					failed++
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	if failed != 0 {
+		return NewErrf(ErrCmdExec,
+			"Failed to execute remove command on %d targets", failed)
+	}
+	return nil
+}
+
+func remoteExists(client *sftp.Client, remote string) bool {
+	_, err := client.Stat(remote)
+	return !os.IsNotExist(err)
+}
+
+func copy(
+	conn *SshConn,
+	remotePath string,
+	dupPolicy ExistingFilePolicy,
+	source io.Reader) error {
+	client, err := sftp.NewClient(conn.client)
+	if err != nil {
+		const msg = "Failed to create SFTP client"
+		logrus.WithError(err).
+			WithField("node", conn.Name()).
+			Error()
+		return NewErrf(err, msg)
+	}
+
+	if remoteExists(client, remotePath) {
+		if dupPolicy == Ignore {
+			return nil
+		}
+		if dupPolicy == Replace {
+			if err = client.Remove(remotePath); err != nil {
+				const msg = "Failed to remove remote file"
+				logrus.WithError(err).
+					WithFields(logrus.Fields{
+						"node":       conn.Name(),
+						"remotePath": remotePath,
+					}).
+					Error(msg)
+				return NewErrf(err, msg)
+			}
+		}
+	}
+
+	parent := filepath.Dir(remotePath)
+	if err = client.MkdirAll(parent); err != nil {
+		const msg = "Failed to create remote directory structure"
+		logrus.WithError(err).
+			WithFields(logrus.Fields{
+				"node":          conn.Name(),
+				"remoteDirPath": parent,
+			}).
+			Error()
+		return NewErrf(err, msg)
+	}
+
+	remote, err := client.Create(remotePath)
+	if err != nil {
+		const msg = "Failed to create remote file"
+		logrus.WithError(err).
+			WithFields(logrus.Fields{
+				"node":       conn.Name(),
+				"remotePath": remotePath,
+			}).
+			Error()
+		return NewErrf(err, msg)
+	}
+	defer remote.Close()
+
+	if _, err = io.Copy(remote, source); err != nil {
+		const msg = "Failed to copy content to remote file"
+		logrus.WithError(err).
+			WithFields(logrus.Fields{
+				"node":       conn.Name(),
+				"remotePath": remotePath,
+			}).
+			Error()
+		return NewErrf(err, msg)
+	}
+
 	return nil
 }
