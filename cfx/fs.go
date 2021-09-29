@@ -40,37 +40,6 @@ func LoadJson(reader io.Reader, out interface{}) error {
 	return nil
 }
 
-// func DumpJSON(writer io.Writer, o interface{}) {
-// 	b, err := json.MarshalIndent(o, "", "    ")
-// 	if err == nil {
-// 		fmt.Println(string(b))
-// 	} else {
-// 		LogErrorX("t.utils", "Failed to marshal data to JSON", err)
-// 	}
-// }
-
-// //GetAsJSON - converts given data to JSON and returns as pretty printed
-// func GetAsJSON(o interface{}) (jstr string, err error) {
-// 	b, err := json.MarshalIndent(o, "", "    ")
-// 	if err == nil {
-// 		jstr = string(b)
-// 	}
-// 	return jstr, LogErrorX("t.utils", "Failed to marshal data to JSON", err)
-// }
-
-// //GetExecDir - gives absolute path of the directory in which the executable
-// //for the current application is present
-// func GetExecDir() (dirPath string) {
-// 	execPath, err := os.Executable()
-// 	if err == nil {
-// 		dirPath = filepath.Dir(execPath)
-// 	} else {
-// 		LogErrorX("t.utils", "Failed to get the executable path", err)
-// 	}
-
-// 	return dirPath
-// }
-
 //ExistsAsFile - checks if a regular file exists at given path. If a error
 //occurs while stating whatever exists at given location, false is returned
 func ExistsAsFile(path string) (yes bool) {

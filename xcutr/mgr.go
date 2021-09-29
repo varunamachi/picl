@@ -11,11 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
 	"github.com/sirupsen/logrus"
+	"github.com/varunamachi/clusterfox/cfx"
 )
 
 var (
-	ErrCmdExec     = errors.New("xcutr.cmd.failed")
-	ErrInvalidNode = errors.New("xcutr.node.invalid")
+	ErrCmdExec      = errors.New("xcutr.cmd.failed")
+	ErrInvalidNode  = errors.New("xcutr.node.invalid")
+	ErrFileNotFound = errors.New("xcutr.file.notFound")
 )
 
 type StdIO struct {
@@ -61,14 +63,8 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 	for _, opts := range config.Opts {
 		conn, err := NewConn(opts)
 		if err != nil {
-			logrus.Warn("Diconnecting established connections")
-			for name, conn := range conns {
-				if err = conn.Close(); err != nil {
-					logrus.WithError(err).WithField("conn", name).
-						Warn("Failed to disconnect")
-				}
-			}
-			return nil, err
+			logrus.Warn("Failed to connect to %s", opts.Host)
+			continue
 		}
 		conns = append(conns, conn)
 		connMap[opts.Name] = conn
@@ -80,31 +76,6 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 		io:      stdIO,
 	}, nil
 }
-
-// func (cm *CmdMan) Include(nodes []string) *CmdMan {
-// 	if len(nodes) == 0 {
-// 		return cm
-// 	}
-// 	// for _, conn := range cm.conns {
-// 	// 	_, found := nodes[conn.Name()]
-// 	// 	conn.disabled = !found
-// 	// }
-// 	for _, node := range nodes {
-
-// 	}
-// 	return cm
-// }
-
-// func (cm *CmdMan) Exclude(nodes map[string]struct{}) *CmdMan {
-// 	if len(nodes) == 0 {
-// 		return cm
-// 	}
-// 	for _, conn := range cm.conns {
-// 		_, found := nodes[conn.Name()]
-// 		conn.disabled = found
-// 	}
-// 	return cm
-// }
 
 func (cm *CmdMan) connList(opts *ExecOpts) []*SshConn {
 	if len(opts.Included) == 0 && len(opts.Excluded) == 0 {
@@ -170,35 +141,6 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 	return nil
 }
 
-// func (cm *CmdMan) ExecSudo(cmd string, opts *ExecOpts) error {
-// 	failed := 0
-// 	conns := cm.connList(opts)
-// 	if len(conns) == 0 {
-// 		logrus.Warn("Could find any node that satisfies current config")
-// 		return nil
-// 	}
-
-// 	var wg sync.WaitGroup
-// 	wg.Add(len(conns))
-// 	for _, conn := range conns {
-// 		conn := conn
-// 		go func() {
-// 			if err := conn.ExecSudo(
-// 				cmd, cm.config.SudoPass, &cm.io); err != nil {
-// 				failed++
-// 			}
-// 			// fmt.Fprintf(cm.io.Out, "\n\n")
-// 			wg.Done()
-// 		}()
-// 	}
-// 	wg.Wait()
-// 	if failed != 0 {
-// 		return NewErrf(ErrCmdExec,
-// 			"Failed to execute sudo command on %d targets", failed)
-// 	}
-// 	return nil
-// }
-
 func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 	conn := cm.connMap[node]
 	if conn == nil {
@@ -254,12 +196,13 @@ func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 		remotePath = "/tmp/" + tempName
 	}
 
-	local, err := os.Open(localPath)
-	if err != nil {
-		// TODO - log and stuff
-		return err
+	if !cfx.ExistsAsFile(localPath) {
+		const msg = "Source file does not exist"
+		logrus.WithFields(logrus.Fields{
+			"localPath": localPath,
+		}).Error(msg)
+		return NewErrf(ErrFileNotFound, msg)
 	}
-	defer local.Close()
 
 	conns := cm.connList(&opts.ExecOpts)
 	if len(conns) == 0 {
@@ -274,7 +217,18 @@ func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 		conn := conn
 		go func() {
 			defer wg.Done()
-			err := copy(conn, remotePath, opts.DupFilePolicy, local)
+
+			local, err := os.Open(localPath)
+			if err != nil {
+				logrus.WithError(err).
+					WithFields(logrus.Fields{
+						"localPath": localPath,
+					}).
+					Error("Failed to open source file")
+			}
+			defer local.Close()
+
+			err = copy(conn, remotePath, opts.DupFilePolicy, local)
 			if err != nil {
 				failed++
 				return
@@ -324,9 +278,8 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 		return NewErrf(ErrInvalidNode, msg)
 	}
 
-	source, err := client.Open(remoteDest)
-	if err != nil {
-		const msg = "Failed to open remote source file"
+	if !remoteExists(client, remoteDest) {
+		const msg = "Remote source file does not exist"
 		logrus.WithError(err).
 			WithFields(logrus.Fields{
 				"node":       conn.Name(),
@@ -335,7 +288,6 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 			Error(msg)
 		return NewErrf(ErrInvalidNode, msg)
 	}
-	defer source.Close()
 
 	conns := cm.connList(&opts.ExecOpts)
 	if len(conns) == 0 || (len(conns) == 1 && conns[0].Name() == node) {
@@ -361,7 +313,19 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 		}
 		go func() {
 			defer wg.Done()
-			err := copy(conn, remotePath, opts.DupFilePolicy, source)
+
+			source, err := client.Open(remoteDest)
+			if err != nil {
+				logrus.WithError(err).
+					WithFields(logrus.Fields{
+						"node":       conn.Name(),
+						"remotePath": remoteDest,
+					}).
+					Error("Failed to open remote source file")
+			}
+			defer source.Close()
+
+			err = copy(conn, remotePath, opts.DupFilePolicy, source)
 			if err != nil {
 				failed++
 				return
@@ -390,11 +354,13 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 					return
 				}
 			}
+
 		}()
 	}
 
 	wg.Wait()
 	if failed != 0 {
+		logrus.WithField("failedCount", failed).Error("Finished with errors")
 		return NewErrf(ErrCmdExec,
 			"Failed to perform replication on %d targets", failed)
 	}
@@ -464,7 +430,7 @@ func copy(
 		const msg = "Failed to create SFTP client"
 		logrus.WithError(err).
 			WithField("node", conn.Name()).
-			Error()
+			Error(msg)
 		return NewErrf(err, msg)
 	}
 
@@ -494,7 +460,7 @@ func copy(
 				"node":          conn.Name(),
 				"remoteDirPath": parent,
 			}).
-			Error()
+			Error(msg)
 		return NewErrf(err, msg)
 	}
 
@@ -506,7 +472,7 @@ func copy(
 				"node":       conn.Name(),
 				"remotePath": remotePath,
 			}).
-			Error()
+			Error(msg)
 		return NewErrf(err, msg)
 	}
 	defer remote.Close()
@@ -518,7 +484,7 @@ func copy(
 				"node":       conn.Name(),
 				"remotePath": remotePath,
 			}).
-			Error()
+			Error(msg)
 		return NewErrf(err, msg)
 	}
 
