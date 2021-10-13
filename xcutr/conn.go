@@ -171,6 +171,10 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 	}
 
 	pkFile := filepath.Join(home, ".ssh", "id_rsa")
+	if !cfx.ExistsAsFile(pkFile) {
+		pkFile = filepath.Join(home, ".ssh", "id_ed25519")
+	}
+
 	if keyFile, found := opts.AuthData["keyFile"]; found {
 		pkFile = filepath.Join(home, ".ssh", keyFile)
 	}
