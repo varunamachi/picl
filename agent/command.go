@@ -1,6 +1,10 @@
 package agent
 
-import "github.com/urfave/cli/v2"
+import (
+	"fmt"
+
+	"github.com/urfave/cli/v2"
+)
 
 func Command() *cli.Command {
 	return &cli.Command{
@@ -13,6 +17,10 @@ func Command() *cli.Command {
 				Usage: "Port on which the service runs",
 				Value: 20202,
 			},
+		},
+		Action: func(etx *cli.Context) error {
+			port := etx.Int("port")
+			return RunAgent(fmt.Sprintf(":%d", port))
 		},
 	}
 }

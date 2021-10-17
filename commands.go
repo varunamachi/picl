@@ -66,7 +66,7 @@ func GetCommands() []*cli.Command {
 				parts := strings.SplitN(remote, ":", 2)
 				fmt.Println(parts)
 				if len(parts) != 2 {
-					return cfx.FileErrf(errors.New("invalid remote format"),
+					return cfx.Errf(errors.New("invalid remote format"),
 						"Invalud remote file provided, should be of the form: "+
 							" <nodeName>:<remotePath>")
 				}
@@ -145,7 +145,7 @@ func GetCommands() []*cli.Command {
 				remote := ctx.String("remote")
 				parts := strings.SplitN(remote, ":", 2)
 				if len(parts) != 2 {
-					return cfx.FileErrf(errors.New("invalid remote format"),
+					return cfx.Errf(errors.New("invalid remote format"),
 						"Invalud remote file provided, should be of the form: "+
 							" <nodeName>:<remotePath>")
 				}

@@ -2,24 +2,24 @@ package cfx
 
 import "fmt"
 
-type FileError struct {
+type Error struct {
 	Err error  `json:"err"`
 	Msg string `json:"msg"`
 }
 
-func (fxErr *FileError) Error() string {
+func (fxErr *Error) Error() string {
 	return fxErr.Err.Error()
 }
 
-func (fxErr *FileError) Unwrap() error {
+func (fxErr *Error) Unwrap() error {
 	return fxErr.Err
 }
 
-func (cfx *FileError) String() string {
+func (cfx *Error) String() string {
 	return cfx.Err.Error() + ": " + cfx.Msg
 }
 
-func FileErrf(inner error, msg string, args ...interface{}) *FileError {
+func Errf(inner error, msg string, args ...interface{}) *Error {
 	msg = fmt.Sprintf(msg, args...)
-	return &FileError{Err: inner, Msg: msg}
+	return &Error{Err: inner, Msg: msg}
 }

@@ -5,13 +5,17 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"github.com/varunamachi/clusterfox"
+	"github.com/varunamachi/clusterfox/agent"
 )
 
 func main() {
+	cmds := clusterfox.GetCommands()
+	cmds = append(cmds, agent.Command())
+
 	app := cli.App{
 		Name:        "fx",
 		Description: "Clusterfox!",
-		Commands:    clusterfox.GetCommands(),
+		Commands:    cmds,
 	}
 	if err := app.Run(os.Args); err != nil {
 		// logrus.Fatal(err)
