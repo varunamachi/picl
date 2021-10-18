@@ -1,6 +1,7 @@
 package xcutr
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/sirupsen/logrus"
 	"github.com/varunamachi/clusterfox/cfx"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -190,12 +192,6 @@ func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 
 func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 
-	remotePath := remoteDest
-	if opts.WithSudo {
-		tempName := uuid.NewString()
-		remotePath = "/tmp/" + tempName
-	}
-
 	if !cfx.ExistsAsFile(localPath) {
 		const msg = "Source file does not exist"
 		logrus.WithFields(logrus.Fields{
@@ -204,61 +200,94 @@ func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 		return NewErrf(ErrFileNotFound, msg)
 	}
 
+	// local, err := os.Open(localPath)
+	// if err != nil {
+	// 	logrus.WithError(err).
+	// 		WithFields(logrus.Fields{
+	// 			"localPath": localPath,
+	// 		}).
+	// 		Error("Failed to open source file")
+	// }
+	// defer local.Close()
+
+	data, err := os.ReadFile(localPath)
+	if err != nil {
+		logrus.WithError(err).
+			WithFields(logrus.Fields{
+				"localPath": localPath,
+			}).
+			Error("Failed to open source file")
+		return cfx.Errf(err, "failed to open file to push")
+	}
+
+	return cm.PushData(data, remoteDest, opts)
+}
+
+func (cm *CmdMan) PushData(
+	data []byte, remoteDest string, opts *CopyOpts) error {
+	remotePath := remoteDest
+	if opts.WithSudo {
+		tempName := uuid.NewString()
+		remotePath = "/tmp/" + tempName
+	}
+
 	conns := cm.connList(&opts.ExecOpts)
 	if len(conns) == 0 {
 		logrus.Warn("Could find any node that satisfies current config")
 		return nil
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(conns))
-	failed := 0
+	// var wg sync.WaitGroup
+	// wg.Add(len(conns))
+
+	eg := errgroup.Group{}
+
 	for _, conn := range conns {
 		conn := conn
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 
-			local, err := os.Open(localPath)
-			if err != nil {
-				logrus.WithError(err).
-					WithFields(logrus.Fields{
-						"localPath": localPath,
-					}).
-					Error("Failed to open source file")
-			}
-			defer local.Close()
+			// defer wg.Done()
+			// local, err := os.Open(localPath)
+			// if err != nil {
+			// 	logrus.WithError(err).
+			// 		WithFields(logrus.Fields{
+			// 			"localPath": localPath,
+			// 		}).
+			// 		Error("Failed to open source file")
+			// }
+			// defer local.Close()
 
-			err = copy(conn, remotePath, opts.DupFilePolicy, local)
+			reader := bytes.NewBuffer(data)
+			err := copy(conn, remotePath, opts.DupFilePolicy, reader)
 			if err != nil {
-				failed++
-				return
+				return err
 			}
 
 			if opts.WithSudo {
 				cmd := fmt.Sprintf("mv %s %s", remotePath, remoteDest)
 				if err := conn.ExecSudo(
 					cmd, cm.config.SudoPass, &cm.io); err != nil {
-					failed++
-					return
+					return cfx.Errf(err,
+						"with sudo: failed to move temp file to destination")
 				}
 
 				cmd = fmt.Sprintf("rm -f %s", remotePath)
 				if err := conn.Exec(cmd, &cm.io); err != nil {
-					failed++
-					return
+					return cfx.Errf(err,
+						"failed to remove temp file")
 				}
 			}
-
-		}()
+			return nil
+		})
 	}
 
-	wg.Wait()
-	if failed != 0 {
-		return NewErrf(ErrCmdExec,
-			"Failed to perform push to %d targets", failed)
+	err := eg.Wait()
+	if err != nil {
+		return err
 	}
 
 	return nil
+
 }
 
 func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {

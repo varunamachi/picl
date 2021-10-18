@@ -21,8 +21,9 @@ type AgentConfig struct {
 
 type MonitorConfig struct {
 	Name        string         `json:"name"`
-	Height      int            `json:"Height"`
-	Width       int            `json:"Width"`
+	Height      int            `json:"height"`
+	Width       int            `json:"width"`
+	GoArch      string         `json:"goArch"`
 	AgentConfig []*AgentConfig `json:"agentConfig"`
 }
 

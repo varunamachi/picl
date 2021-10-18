@@ -16,6 +16,6 @@ fi
 touch "${logFilePrefix}.log"
 
 # May be use PID file later
-killall "${serverExe}"
+killall "${serverExe}" 
 
 nohup "${deploymentDir}/${serverExe}" > "${logFilePrefix}.log" 2>&1 &
