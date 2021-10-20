@@ -10,7 +10,9 @@ if [ ! -d "$cmdDir" ] ; then
 fi
 cd "$cmdDir" || exit -1
 echo "Building...."
-go build -o "$root/_local/bin/fx" || exit -1
+
+go build -ldflags "-s -w" -race -o "$root/_local/bin/fx" || exit -1
+
 echo "Running...."
 echo
 # shift
