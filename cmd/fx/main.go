@@ -16,6 +16,8 @@ func main() {
 			getPushCmd(),
 			getReplicateCmd(),
 			getAgentCmd(),
+			getMonitorCmd(),
+			getBuildInstallCmd(),
 		},
 	}
 	if err := app.Run(os.Args); err != nil {

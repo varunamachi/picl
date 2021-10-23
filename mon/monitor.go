@@ -2,12 +2,13 @@ package mon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
-	"github.com/varunamachi/clusterfox/agent"
+	"github.com/sirupsen/logrus"
 	"github.com/varunamachi/clusterfox/cfx"
 	"github.com/varunamachi/clusterfox/cfx/client"
 	"golang.org/x/sync/errgroup"
@@ -27,13 +28,26 @@ type MonitorConfig struct {
 	AgentConfig []*AgentConfig `json:"agentConfig"`
 }
 
+func (cfg *MonitorConfig) PrintSampleJSON() {
+	cfg.AgentConfig = []*AgentConfig{
+		{},
+	}
+
+	j, err := json.MarshalIndent(cfg, "", "    ")
+	if err != nil {
+		logrus.WithError(err).Error("Failed to marshal MonitorConfig to JSON")
+		return
+	}
+	fmt.Println(string(j))
+}
+
 type Handler interface {
 	Handle(resp *AgentResponse) error
 }
 
 type AgentResponse struct {
 	Index int
-	Data  *agent.SysInfo
+	Data  *SysInfo
 	Err   error
 }
 
@@ -109,7 +123,7 @@ func (mon *Monitor) poll(
 			index := index
 			client := client
 			eg.Go(func() error {
-				info := &agent.SysInfo{}
+				info := &SysInfo{}
 				res := client.Get(gtx, "/sysinfo/cur")
 				if err := res.LoadClose(&info); err != nil {
 					dataOut <- &AgentResponse{Index: index, Err: err}
@@ -127,7 +141,7 @@ func (mon *Monitor) poll(
 type TuiHandler struct {
 	cfg    *MonitorConfig
 	table  *widgets.Table
-	values []*agent.SysInfo
+	values []*SysInfo
 }
 
 func NewTuiHandler(cfg *MonitorConfig) (Handler, error) {

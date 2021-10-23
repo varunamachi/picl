@@ -19,7 +19,7 @@ func getExecCmd() *cli.Command {
 		Usage:        "Execute commands on multiple machines",
 		Description:  "Execute commands on multiple machines",
 		BashComplete: cli.DefaultAppComplete,
-		Flags:        withCommonFlags(),
+		Flags:        withCmdManFlags(),
 		Action: func(ctx *cli.Context) error {
 
 			cmdMan, opts, err := getCmdMgrAndOpts(ctx)
@@ -89,7 +89,7 @@ func getPushCmd() *cli.Command {
 		Usage:        "Push a file from local to remote",
 		Description:  "Copy a file from local to remote",
 		BashComplete: cli.DefaultAppComplete,
-		Flags: withCommonFlags(
+		Flags: withCmdManFlags(
 			&cli.StringFlag{
 				Name:     "local-path",
 				Usage:    "Local destination file path",
@@ -133,7 +133,7 @@ func getReplicateCmd() *cli.Command {
 		Description: "Replicate a file from one remote node to others, " +
 			"with same path",
 		BashComplete: cli.DefaultAppComplete,
-		Flags: withCommonFlags(
+		Flags: withCmdManFlags(
 			&cli.StringFlag{
 				Name: "remote",
 				Usage: "Remote source file path, should be of the " +
@@ -183,23 +183,7 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 			"Both 'only' and 'except' options cannot be given simultaneously")
 	}
 
-	cfgPath := filepath.Join(
-		cfx.MustGetUserHome(), ".fx", cfg+".cluster.json")
-	var config xcutr.Config
-	if err := cfx.LoadJsonFile(cfgPath, &config); err != nil {
-		logrus.
-			WithError(err).
-			WithField("config", cfg).
-			Error("Failed to load config")
-		return nil, nil, err
-	}
-
-	cmdMgr, err := xcutr.NewCmdMan(&config, xcutr.StdIO{
-		Out: os.Stdout,
-		Err: os.Stderr,
-		In:  os.Stdin,
-	})
-
+	cmdMgr, err := createCmdManager(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -215,7 +199,32 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 	return cmdMgr, &execOpts, nil
 }
 
-func withCommonFlags(flags ...cli.Flag) []cli.Flag {
+func createCmdManager(cfg string) (*xcutr.CmdMan, error) {
+	cfgPath := filepath.Join(
+		cfx.MustGetUserHome(), ".fx", cfg+".cluster.json")
+	var config xcutr.Config
+	if err := cfx.LoadJsonFile(cfgPath, &config); err != nil {
+		logrus.
+			WithError(err).
+			WithField("config", cfg).
+			Error("Failed to load config")
+		return nil, err
+	}
+
+	cmdMgr, err := xcutr.NewCmdMan(&config, xcutr.StdIO{
+		Out: os.Stdout,
+		Err: os.Stderr,
+		In:  os.Stdin,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cmdMgr, nil
+}
+
+func withCmdManFlags(flags ...cli.Flag) []cli.Flag {
 	common := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "config",
