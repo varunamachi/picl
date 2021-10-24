@@ -2,6 +2,7 @@ package cfx
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -66,4 +67,14 @@ func MustGetUserHome() string {
 		log.Fatalf(err.Error())
 	}
 	return home
+}
+
+func PrintJSON(o interface{}) {
+	d, e := json.MarshalIndent(o, "", "    ")
+	if e != nil {
+		logrus.WithError(e).Error("Failed to print as JSON")
+		return
+	}
+
+	fmt.Println(string(d))
 }

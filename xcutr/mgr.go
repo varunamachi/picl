@@ -193,7 +193,7 @@ func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 
 	if !cfx.ExistsAsFile(localPath) {
-		const msg = "Source file does not exist"
+		const msg = "Push: source file does not exist"
 		logrus.WithFields(logrus.Fields{
 			"localPath": localPath,
 		}).Error(msg)

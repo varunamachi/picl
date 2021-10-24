@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -58,11 +57,14 @@ func getMonitorCmd() *cli.Command {
 				return err
 			}
 
-			gtx := context.Background()
-			monitor, err := mon.NewMonitor(
-				gtx,
-				&config,
-				&mon.TuiHandler{})
+			hdl, gtx, err := mon.NewTuiHandler(&config)
+			// hdl, gtx, err := mon.NewSimpleHandler(&config)
+			if err != nil {
+				return err
+			}
+			defer hdl.Close()
+
+			monitor, err := mon.NewMonitor(gtx, &config, hdl)
 
 			if err != nil {
 				return err
@@ -114,7 +116,7 @@ func getBuildInstallCmd() *cli.Command {
 		Action: func(etx *cli.Context) error {
 			config := etx.String("config")
 			root := etx.String("fx-root")
-			arch := etx.String("arm64")
+			arch := etx.String("arch")
 
 			cmdMan, err := createCmdManager(config)
 			if err != nil {

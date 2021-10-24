@@ -18,4 +18,4 @@ touch "${logFilePrefix}.log"
 # May be use PID file later
 killall "${serverExe}" 
 
-nohup "${deploymentDir}/${serverExe}" > "${logFilePrefix}.log" 2>&1 &
+nohup "${deploymentDir}/${serverExe}" "agent" > "${logFilePrefix}.log" 2>&1 &

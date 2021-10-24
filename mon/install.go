@@ -19,7 +19,7 @@ var (
 //go:embed run.sh
 var script []byte
 
-func Build(fxRootPath, goArch string) error {
+func Build(fxRootPath, goArch string) (string, error) {
 
 	// go build -ldflags "-s -w" -race -o "$root/_local/bin/fx"
 
@@ -29,18 +29,18 @@ func Build(fxRootPath, goArch string) error {
 	cmd := exec.Command(
 		"go", "build",
 		"-ldflags", "-s -w",
-		"-v", "-race",
 		"-o", output,
 		cmdDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "GOARCH="+goArch)
 	if err := cmd.Run(); err != nil {
-		const msg = "couldnt get main file path"
+		const msg = "failed to run go build"
 		logrus.WithError(err).Error(msg)
-		return cfx.Errf(err, msg)
+		return "", cfx.Errf(err, msg)
 	}
 
-	return nil
+	return output, nil
 }
 
 func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
@@ -92,11 +92,14 @@ func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
 }
 
 func BuildAndInstall(cmdMan *xcutr.CmdMan, fxRootPath, goArch string) error {
-	if err := Build(fxRootPath, goArch); err != nil {
+	logrus.Info("Building the executable for arch ", goArch)
+	output, err := Build(fxRootPath, goArch)
+	if err != nil {
 		return err
 	}
 
-	if err := InstallAgent(cmdMan, goArch); err != nil {
+	logrus.Info("Deploying executable")
+	if err := InstallAgent(cmdMan, output); err != nil {
 		return err
 	}
 

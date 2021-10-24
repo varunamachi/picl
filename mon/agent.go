@@ -1,16 +1,21 @@
 package mon
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/sirupsen/logrus"
 )
 
 func RunAgent(address string) error {
 	server := echo.New()
-
-	server.GET("/api/v0/sys/cur", handleSysInfo)
-	server.GET("/", handleSysInfo)
+	server.GET("/api/v0/cur", handleSysInfo)
+	server.GET("/api/v0/host", hostInfo)
+	server.GET("/", func(etx echo.Context) error {
+		return etx.String(http.StatusOK, "42")
+	})
 	return server.Start(address)
 }
 
@@ -23,7 +28,30 @@ func handleSysInfo(etx echo.Context) error {
 	return etx.JSON(http.StatusOK, info)
 }
 
-func root(etx echo.Context) error {
-	etx.String(http.StatusOK, "Hello!")
-	return nil
+func hostInfo(etx echo.Context) error {
+	h, err := host.Info()
+	if err != nil {
+		logrus.WithError(err).Error("failed to get host inforamtion")
+		return &echo.HTTPError{
+			Code:     http.StatusInternalServerError,
+			Message:  "failed to get host information",
+			Internal: err,
+		}
+	}
+
+	days := h.Uptime / 60 / 60 / 24
+	hours := (h.Uptime / 60 / 60) % 24
+	minute := (h.Uptime / 60) % 60
+	seconds := h.Uptime % 60
+
+	humanUptime := fmt.Sprintf("%d Days, %d Hours, %d Minutes, %d Seconds",
+		days, hours, minute, seconds)
+
+	return etx.JSON(http.StatusOK, map[string]interface{}{
+		"hostname":    h.Hostname,
+		"hostId":      h.HostID,
+		"kernalArch":  h.KernelArch,
+		"uptime":      h.Uptime,
+		"humanUptime": humanUptime,
+	})
 }

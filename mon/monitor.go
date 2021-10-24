@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	ui "github.com/gizak/termui/v3"
-	"github.com/gizak/termui/v3/widgets"
 	"github.com/sirupsen/logrus"
 	"github.com/varunamachi/clusterfox/cfx"
 	"github.com/varunamachi/clusterfox/cfx/client"
@@ -42,7 +40,8 @@ func (cfg *MonitorConfig) PrintSampleJSON() {
 }
 
 type Handler interface {
-	Handle(resp *AgentResponse) error
+	Handle(gtx context.Context, resp *AgentResponse) error
+	Close() error
 }
 
 type AgentResponse struct {
@@ -69,8 +68,12 @@ func NewMonitor(
 
 	for _, conf := range config.AgentConfig {
 		client := client.New(conf.Address, "/api/v0")
-		if err := client.Login(gtx, &conf.AuthData); err != nil {
-			return nil, err
+		if conf.AuthData.Data != nil {
+			if err := client.Login(gtx, &conf.AuthData); err != nil {
+				msg := "failed to login to agent"
+				logrus.WithError(err).Error(msg, conf.Name)
+				return nil, cfx.Errf(err, msg, conf.Name)
+			}
 		}
 		mon.clients = append(mon.clients, client)
 	}
@@ -94,7 +97,7 @@ func (mon *Monitor) Run(
 			case <-gtx.Done():
 				return gtx.Err()
 			case resp := <-out:
-				if err := mon.handler.Handle(resp); err != nil {
+				if err := mon.handler.Handle(gtx, resp); err != nil {
 					return err
 				}
 			default:
@@ -124,7 +127,7 @@ func (mon *Monitor) poll(
 			client := client
 			eg.Go(func() error {
 				info := &SysInfo{}
-				res := client.Get(gtx, "/sysinfo/cur")
+				res := client.Get(gtx, "/cur")
 				if err := res.LoadClose(&info); err != nil {
 					dataOut <- &AgentResponse{Index: index, Err: err}
 					return err
@@ -138,63 +141,34 @@ func (mon *Monitor) poll(
 	}
 }
 
-type TuiHandler struct {
-	cfg    *MonitorConfig
-	table  *widgets.Table
-	values []*SysInfo
+type simpleHandler struct {
+	monConfig *MonitorConfig
 }
 
-func NewTuiHandler(cfg *MonitorConfig) (Handler, error) {
-	if err := ui.Init(); err != nil {
-		return nil, cfx.Errf(err, "failed to initialize termui")
-
-	}
-	defer ui.Close()
-
-	table := widgets.NewTable()
-	// table.Rows = [][]string{
-	// 	[]string{"Name", "Temp", "CPU Usage", "RAM Usage"},
-	// }
-	table.RowStyles[0] = ui.NewStyle(
-		ui.ColorWhite, ui.ColorBlack, ui.ModifierBold)
-
-	table.TextStyle = ui.NewStyle(ui.ColorWhite)
-	table.SetRect(0, 0, cfg.Width, cfg.Height)
-	table.TextAlignment = ui.AlignRight
-	table.Rows = make([][]string, len(cfg.AgentConfig)+1)
-
-	hdl := &TuiHandler{
-		cfg:   cfg,
-		table: table,
-	}
-
-	return hdl, nil
+func NewSimpleHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
+	return &simpleHandler{
+		monConfig: cfg,
+	}, context.Background(), nil
 }
 
-func (t TuiHandler) Handle(resp *AgentResponse) error {
+func (sh *simpleHandler) Handle(
+	gtx context.Context, resp *AgentResponse) error {
 
-	t.values[resp.Index] = resp.Data
-
-	t.table.Rows[0] = []string{"Name", "Temp", "CPU Usage", "RAM Usage"}
-
-	for index, ag := range t.cfg.AgentConfig {
-		val := t.values[index]
-		t.table.Rows[index+1] = []string{
-			ag.Name,
-			fmt.Sprintf("%.2f", val.CPUTemp),
-			fmt.Sprintf("%.2f", val.CPUUsagePct),
-			fmt.Sprintf("%.2f", val.MemUsagePct),
-		}
+	node := sh.monConfig.AgentConfig[resp.Index]
+	if resp.Err != nil {
+		fmt.Println(resp.Err)
+		return nil
 	}
 
-	ui.Render(t.table)
-	// uiEvents := ui.PollEvents()
-	// for {
-	// 	e := <-uiEvents
-	// 	switch e.ID {
-	// 	case "q", "<C-c>":
-	// 		return nil
-	// 	}
-	// }
+	fmt.Printf("%2d.  %10s   Tmp: %4.2f   CPU: %4.2f%%   Mem: %4.2f%%\n",
+		resp.Index,
+		node.Name,
+		resp.Data.CPUTemp/1000,
+		resp.Data.CPUUsagePct,
+		resp.Data.MemUsagePct)
+	return nil
+}
+
+func (sh *simpleHandler) Close() error {
 	return nil
 }

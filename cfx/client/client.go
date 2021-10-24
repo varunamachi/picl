@@ -42,20 +42,26 @@ func newApiResult(req *http.Request, resp *http.Response) *ApiResult {
 		code:   resp.StatusCode,
 	}
 
+	var err *cfx.Error
+
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		res.err = cfx.Errf(ErrNotFound, "Not found: %s", target)
+		err = cfx.Errf(ErrNotFound, "Not found: %s", target)
 	case http.StatusUnauthorized:
-		res.err = cfx.Errf(ErrUnauthorized, "Unauthorized: %s", target)
+		err = cfx.Errf(ErrUnauthorized, "Unauthorized: %s", target)
 	case http.StatusForbidden:
-		res.err = cfx.Errf(ErrUnauthorized, "Forbidden: %s", target)
+		err = cfx.Errf(ErrUnauthorized, "Forbidden: %s", target)
 	case http.StatusInternalServerError:
-		res.err = cfx.Errf(ErrUnauthorized, "Internal Server Error: %s", target)
+		err = cfx.Errf(ErrUnauthorized, "Internal Server Error: %s", target)
 	default:
 		if resp.StatusCode > 400 {
-			res.err = cfx.Errf(
+			err = cfx.Errf(
 				ErrOtherStatus, "HTTP Error: %d - %s", resp.StatusCode, target)
 		}
+	}
+	if err != nil {
+		logrus.WithError(err).Error(err.String())
+		res.err = err
 	}
 	return res
 }
@@ -109,9 +115,9 @@ type Client struct {
 func DefaultTransport() *http.Transport {
 	return &http.Transport{
 		Dial: (&net.Dialer{
-			Timeout: 1 * time.Minute,
+			Timeout: 1 * time.Second,
 		}).Dial,
-		TLSHandshakeTimeout: 1 * time.Minute,
+		TLSHandshakeTimeout: 1 * time.Second,
 	}
 }
 
@@ -120,7 +126,7 @@ func New(address, contextRoot string) *Client {
 		address:     address,
 		contextRoot: contextRoot,
 		Client: &http.Client{
-			Timeout:   time.Minute * 5,
+			Timeout:   time.Second * 1,
 			Transport: DefaultTransport(),
 		},
 	}
@@ -142,12 +148,18 @@ func NewCustom(
 
 func (client *Client) createUrl(args ...string) string {
 	var buffer bytes.Buffer
+	if _, err := buffer.WriteString(client.address); err != nil {
+		logrus.Fatal(err)
+	}
+	// if _, err := buffer.WriteString("/"); err != nil {
+	// 	logrus.Fatal(err)
+	// }
 	if _, err := buffer.WriteString(client.contextRoot); err != nil {
 		logrus.Fatal(err)
 	}
-	if _, err := buffer.WriteString("/"); err != nil {
-		logrus.Fatal(err)
-	}
+	// if _, err := buffer.WriteString("/"); err != nil {
+	// 	logrus.Fatal(err)
+	// }
 	for i := 0; i < len(args); i++ {
 		if _, err := buffer.WriteString(args[i]); err != nil {
 			logrus.Fatal(err)
@@ -204,6 +216,7 @@ func (client *Client) Get(gtx context.Context, urlArgs ...string) *ApiResult {
 	}
 
 	resp, err := client.Do(req)
+
 	if err != nil {
 		return newErrorResult(req, err, "Failed to perform http request")
 	}
