@@ -3,7 +3,6 @@ package mon
 import (
 	"context"
 	"fmt"
-	"time"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -67,10 +66,11 @@ func (t *TuiHandler) Handle(gtx context.Context, resp *AgentResponse) error {
 
 		select {
 		case <-gtx.Done():
+			fmt.Println("D:TUI")
 			return gtx.Err()
 		default:
-		}
 
+		}
 		val := t.values[index]
 		if val == nil {
 			t.table.Rows[index+1] = []string{
@@ -79,18 +79,15 @@ func (t *TuiHandler) Handle(gtx context.Context, resp *AgentResponse) error {
 				fmt.Sprintf("N/A"),
 				fmt.Sprintf("N/A"),
 			}
-			time.Sleep(100 * time.Millisecond)
-			continue
+		} else {
+			t.table.Rows[index+1] = []string{
+				ag.Name,
+				fmt.Sprintf("%.2f", val.CPUTemp/1000),
+				fmt.Sprintf("%.2f%%", val.CPUUsagePct),
+				fmt.Sprintf("%.2f%%", val.MemUsagePct),
+			}
 		}
-
-		t.table.Rows[index+1] = []string{
-			ag.Name,
-			fmt.Sprintf("%.2f", val.CPUTemp/1000),
-			fmt.Sprintf("%.2f%%", val.CPUUsagePct),
-			fmt.Sprintf("%.2f%%", val.MemUsagePct),
-		}
+		ui.Render(t.table)
 	}
-
-	ui.Render(t.table)
 	return nil
 }

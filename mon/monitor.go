@@ -67,7 +67,8 @@ func NewMonitor(
 	}
 
 	for _, conf := range config.AgentConfig {
-		client := client.New(conf.Address, "/api/v0")
+		client := client.NewCustom(
+			conf.Address, "/api/v0", client.DefaultTransport(), 100*time.Millisecond)
 		if conf.AuthData.Data != nil {
 			if err := client.Login(gtx, &conf.AuthData); err != nil {
 				msg := "failed to login to agent"
@@ -100,7 +101,6 @@ func (mon *Monitor) Run(
 				if err := mon.handler.Handle(gtx, resp); err != nil {
 					return err
 				}
-			default:
 			}
 		}
 	})
@@ -120,23 +120,22 @@ func (mon *Monitor) poll(
 			return gtx.Err()
 		default:
 			// No-op
-		}
 
-		for index, client := range mon.clients {
-			index := index
-			client := client
-			eg.Go(func() error {
-				info := &SysInfo{}
-				res := client.Get(gtx, "/cur")
-				if err := res.LoadClose(&info); err != nil {
-					dataOut <- &AgentResponse{Index: index, Err: err}
-					return err
-				}
-				dataOut <- &AgentResponse{Index: index, Data: info}
-				return nil
-			})
+			for index, client := range mon.clients {
+				index := index
+				client := client
+				eg.Go(func() error {
+					info := &SysInfo{}
+					res := client.Get(gtx, "/cur")
+					if err := res.LoadClose(&info); err != nil {
+						dataOut <- &AgentResponse{Index: index, Err: err}
+						return err
+					}
+					dataOut <- &AgentResponse{Index: index, Data: info}
+					return nil
+				})
+			}
 		}
-
 		time.Sleep(1 * time.Second)
 	}
 }
