@@ -8,8 +8,13 @@ import (
 
 func main() {
 	app := cli.App{
-		Name:        "fx",
-		Description: "Clusterfox!",
+		Name:        "picl",
+		Description: "Pi cluster controller",
+		Authors: []*cli.Author{
+			{
+				Name: "varunamachi",
+			},
+		},
 		Commands: []*cli.Command{
 			getExecCmd(),
 			getPullCmd(),

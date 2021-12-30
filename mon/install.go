@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/clusterfox/cfx"
-	"github.com/varunamachi/clusterfox/xcutr"
+	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/picl/xcutr"
 )
 
 var (
@@ -21,10 +21,10 @@ var script []byte
 
 func Build(fxRootPath, goArch string) (string, error) {
 
-	// go build -ldflags "-s -w" -race -o "$root/_local/bin/fx"
+	// go build -ldflags "-s -w" -race -o "$root/_local/bin/picl"
 
-	cmdDir := filepath.Join(fxRootPath, "cmd", "fx")
-	output := filepath.Join(fxRootPath, "_local", "bin", goArch, "fx")
+	cmdDir := filepath.Join(fxRootPath, "cmd", "picl")
+	output := filepath.Join(fxRootPath, "_local", "bin", goArch, "picl")
 
 	cmd := exec.Command(
 		"go", "build",
@@ -37,7 +37,7 @@ func Build(fxRootPath, goArch string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		const msg = "failed to run go build"
 		logrus.WithError(err).Error(msg)
-		return "", cfx.Errf(err, msg)
+		return "", cmn.Errf(err, msg)
 	}
 
 	return output, nil
@@ -49,19 +49,19 @@ func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
 		WithSudo: true,
 	})
 	if err != nil {
-		return cfx.Errf(err, "failed to create destination directory")
+		return cmn.Errf(err, "failed to create destination directory")
 	}
 
-	// err = cmdMan.Exec("killall fx", &xcutr.ExecOpts{})
+	// err = cmdMan.Exec("killall picl", &xcutr.ExecOpts{})
 
-	err = cmdMan.Push(exePath, "/opt/bin/fx", &xcutr.CopyOpts{
+	err = cmdMan.Push(exePath, "/opt/bin/picl", &xcutr.CopyOpts{
 		ExecOpts: xcutr.ExecOpts{
 			WithSudo: true,
 		},
 		DupFilePolicy: xcutr.Replace,
 	})
 	if err != nil {
-		return cfx.Errf(err, "failed to copy agent executable")
+		return cmn.Errf(err, "failed to copy agent executable")
 	}
 
 	err = cmdMan.PushData(script, "/opt/bin/run.sh", &xcutr.CopyOpts{
@@ -71,21 +71,21 @@ func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
 		DupFilePolicy: xcutr.Replace,
 	})
 	if err != nil {
-		return cfx.Errf(err, "failed to copy run script")
+		return cmn.Errf(err, "failed to copy run script")
 	}
 
 	err = cmdMan.Exec("chmod -R 755 /opt/bin/*", &xcutr.ExecOpts{
 		WithSudo: true,
 	})
 	if err != nil {
-		return cfx.Errf(err, "failed to agent executable permission")
+		return cmn.Errf(err, "failed to agent executable permission")
 	}
 
 	err = cmdMan.Exec("/opt/bin/run.sh", &xcutr.ExecOpts{
 		WithSudo: true,
 	})
 	if err != nil {
-		return cfx.Errf(err, "failed to start agent")
+		return cmn.Errf(err, "failed to start agent")
 	}
 
 	return nil

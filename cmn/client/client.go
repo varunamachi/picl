@@ -12,7 +12,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/clusterfox/cfx"
+	"github.com/varunamachi/picl/cmn"
 )
 
 var (
@@ -42,20 +42,20 @@ func newApiResult(req *http.Request, resp *http.Response) *ApiResult {
 		code:   resp.StatusCode,
 	}
 
-	var err *cfx.Error
+	var err *cmn.Error
 
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		err = cfx.Errf(ErrNotFound, "Not found: %s", target)
+		err = cmn.Errf(ErrNotFound, "Not found: %s", target)
 	case http.StatusUnauthorized:
-		err = cfx.Errf(ErrUnauthorized, "Unauthorized: %s", target)
+		err = cmn.Errf(ErrUnauthorized, "Unauthorized: %s", target)
 	case http.StatusForbidden:
-		err = cfx.Errf(ErrUnauthorized, "Forbidden: %s", target)
+		err = cmn.Errf(ErrUnauthorized, "Forbidden: %s", target)
 	case http.StatusInternalServerError:
-		err = cfx.Errf(ErrUnauthorized, "Internal Server Error: %s", target)
+		err = cmn.Errf(ErrUnauthorized, "Internal Server Error: %s", target)
 	default:
 		if resp.StatusCode > 400 {
-			err = cfx.Errf(
+			err = cmn.Errf(
 				ErrOtherStatus, "HTTP Error: %d - %s", resp.StatusCode, target)
 		}
 	}
@@ -74,7 +74,7 @@ func newErrorResult(req *http.Request, err error, msg string) *ApiResult {
 	}
 
 	return &ApiResult{
-		err:    cfx.Errf(err, msg),
+		err:    cmn.Errf(err, msg),
 		target: target,
 	}
 }
@@ -100,7 +100,7 @@ func (ar *ApiResult) Error() error {
 	}
 
 	if ar.resp == nil || ar.resp.Body == nil {
-		ar.err = cfx.Errf(ErrInvalidResponse, "No valid http response received")
+		ar.err = cmn.Errf(ErrInvalidResponse, "No valid http response received")
 	}
 	return ar.err
 }

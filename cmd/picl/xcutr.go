@@ -9,8 +9,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"github.com/varunamachi/clusterfox/cfx"
-	"github.com/varunamachi/clusterfox/xcutr"
+	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/picl/xcutr"
 )
 
 func getExecCmd() *cli.Command {
@@ -46,7 +46,7 @@ func getPullCmd() *cli.Command {
 			&cli.StringFlag{
 				Name:    "config",
 				Usage:   "Server group configuration to use",
-				EnvVars: []string{"CFX_GROUP_CONFIG"},
+				EnvVars: []string{"cmn_GROUP_CONFIG"},
 				Value:   "default",
 			},
 			&cli.StringFlag{
@@ -68,7 +68,7 @@ func getPullCmd() *cli.Command {
 			parts := strings.SplitN(remote, ":", 2)
 			fmt.Println(parts)
 			if len(parts) != 2 {
-				return cfx.Errf(errors.New("invalid remote format"),
+				return cmn.Errf(errors.New("invalid remote format"),
 					"Invalud remote file provided, should be of the form: "+
 						" <nodeName>:<remotePath>")
 			}
@@ -153,7 +153,7 @@ func getReplicateCmd() *cli.Command {
 			remote := ctx.String("remote")
 			parts := strings.SplitN(remote, ":", 2)
 			if len(parts) != 2 {
-				return cfx.Errf(errors.New("invalid remote format"),
+				return cmn.Errf(errors.New("invalid remote format"),
 					"Invalud remote file provided, should be of the form: "+
 						" <nodeName>:<remotePath>")
 			}
@@ -201,9 +201,9 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 
 func createCmdManager(cfg string) (*xcutr.CmdMan, error) {
 	cfgPath := filepath.Join(
-		cfx.MustGetUserHome(), ".fx", cfg+".cluster.json")
+		cmn.MustGetUserHome(), ".picl", cfg+".cluster.json")
 	var config xcutr.Config
-	if err := cfx.LoadJsonFile(cfgPath, &config); err != nil {
+	if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
 		logrus.
 			WithError(err).
 			WithField("config", cfg).
@@ -229,27 +229,27 @@ func withCmdManFlags(flags ...cli.Flag) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "config",
 			Usage:   "Server group configuration to use",
-			EnvVars: []string{"CFX_GROUP_CONFIG"},
+			EnvVars: []string{"cmn_GROUP_CONFIG"},
 			Value:   "default",
 		},
 		&cli.StringFlag{
 			Name: "only",
 			Usage: "Comma seperated list of nodes, only on which " +
 				"the commands will be executed",
-			EnvVars: []string{"CFX_EXEC_ONLY"},
+			EnvVars: []string{"cmn_EXEC_ONLY"},
 			Value:   "",
 		},
 		&cli.StringFlag{
 			Name: "except",
 			Usage: "Comma seperated list of nodes, except which " +
 				"the commands will be executed",
-			EnvVars: []string{"CFX_EXEC_EXCEPT"},
+			EnvVars: []string{"cmn_EXEC_EXCEPT"},
 			Value:   "",
 		},
 		&cli.BoolFlag{
 			Name:    "sudo",
 			Usage:   "Runs command with sudo privilege",
-			EnvVars: []string{"CFX_EXEC_SUDO"},
+			EnvVars: []string{"cmn_EXEC_SUDO"},
 		},
 	}
 	return append(common, flags...)

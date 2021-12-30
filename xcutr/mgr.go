@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
 	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/clusterfox/cfx"
+	"github.com/varunamachi/picl/cmn"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -192,7 +192,7 @@ func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 
 func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 
-	if !cfx.ExistsAsFile(localPath) {
+	if !cmn.ExistsAsFile(localPath) {
 		const msg = "Push: source file does not exist"
 		logrus.WithFields(logrus.Fields{
 			"localPath": localPath,
@@ -217,7 +217,7 @@ func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 				"localPath": localPath,
 			}).
 			Error("Failed to open source file")
-		return cfx.Errf(err, "failed to open file to push")
+		return cmn.Errf(err, "failed to open file to push")
 	}
 
 	return cm.PushData(data, remoteDest, opts)
@@ -267,13 +267,13 @@ func (cm *CmdMan) PushData(
 				cmd := fmt.Sprintf("mv %s %s", remotePath, remoteDest)
 				if err := conn.ExecSudo(
 					cmd, cm.config.SudoPass, &cm.io); err != nil {
-					return cfx.Errf(err,
+					return cmn.Errf(err,
 						"with sudo: failed to move temp file to destination")
 				}
 
 				cmd = fmt.Sprintf("rm -f %s", remotePath)
 				if err := conn.Exec(cmd, &cm.io); err != nil {
-					return cfx.Errf(err,
+					return cmn.Errf(err,
 						"failed to remove temp file")
 				}
 			}

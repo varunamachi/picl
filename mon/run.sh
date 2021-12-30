@@ -1,10 +1,10 @@
 #!/bin/bash
 
 deploymentDir="/opt/bin"
-serverExe="fx"
+serverExe="picl"
 
 
-logFilePrefix="${deploymentDir}/fx"
+logFilePrefix="${deploymentDir}/picl"
 
 
 if [ -f "${logFilePrefix}.log" ] ; then

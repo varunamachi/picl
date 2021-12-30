@@ -7,8 +7,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"github.com/varunamachi/clusterfox/cfx"
-	"github.com/varunamachi/clusterfox/mon"
+	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/picl/mon"
 )
 
 func getAgentCmd() *cli.Command {
@@ -38,16 +38,16 @@ func getMonitorCmd() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "config",
-				Usage: "Name of the config, as: ~/.fx/'config'.monitor.json",
+				Usage: "Name of the config, as: ~/.picl/'config'.monitor.json",
 				Value: "default",
 			},
 		},
 		Action: func(etx *cli.Context) error {
 			cfg := etx.String("config")
 			cfgPath := filepath.Join(
-				cfx.MustGetUserHome(), ".fx", cfg+".monitor.json")
+				cmn.MustGetUserHome(), ".picl", cfg+".monitor.json")
 			var config mon.MonitorConfig
-			if err := cfx.LoadJsonFile(cfgPath, &config); err != nil {
+			if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
 				logrus.
 					WithError(err).
 					WithField("config", cfg).
@@ -77,7 +77,7 @@ func getMonitorCmd() *cli.Command {
 
 func getBuildInstallCmd() *cli.Command {
 
-	//<root>/cmd/fx/agmon.go
+	//<root>/cmd/picl/agmon.go
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		const msg = "Couldnt get main file path"
@@ -92,19 +92,19 @@ func getBuildInstallCmd() *cli.Command {
 
 	return &cli.Command{
 		Name:        "build-install",
-		Description: "Build fx and install it to nodes",
-		Usage:       "Build fx and install it to nodes",
+		Description: "Build picl and install it to nodes",
+		Usage:       "Build picl and install it to nodes",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "config",
 				Usage:   "Server group configuration to use",
-				EnvVars: []string{"CFX_GROUP_CONFIG"},
+				EnvVars: []string{"cmn_GROUP_CONFIG"},
 				Value:   "default",
 			},
 			&cli.StringFlag{
-				Name: "fx-root",
+				Name: "picl-root",
 				Usage: "Root of the clusterfox repo. Default is assumes its " +
-					"the same repo where running version of fx is built",
+					"the same repo where running version of picl is built",
 				Value: fxRootPath,
 			},
 			&cli.StringFlag{
@@ -115,7 +115,7 @@ func getBuildInstallCmd() *cli.Command {
 		},
 		Action: func(etx *cli.Context) error {
 			config := etx.String("config")
-			root := etx.String("fx-root")
+			root := etx.String("picl-root")
 			arch := etx.String("arch")
 
 			cmdMan, err := createCmdManager(config)

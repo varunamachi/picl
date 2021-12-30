@@ -13,7 +13,7 @@ import (
 
 	fc "github.com/fatih/color"
 	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/clusterfox/cfx"
+	"github.com/varunamachi/picl/cmn"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
@@ -171,7 +171,7 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 	}
 
 	pkFile := filepath.Join(home, ".ssh", "id_rsa")
-	if !cfx.ExistsAsFile(pkFile) {
+	if !cmn.ExistsAsFile(pkFile) {
 		pkFile = filepath.Join(home, ".ssh", "id_ed25519")
 	}
 
@@ -210,7 +210,7 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 }
 
 func getPasswordConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
-	home := cfx.MustGetUserHome()
+	home := cmn.MustGetUserHome()
 	khFile := filepath.Join(home, ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(khFile)
 	if err != nil {

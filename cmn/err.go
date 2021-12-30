@@ -1,4 +1,4 @@
-package cfx
+package cmn
 
 import "fmt"
 

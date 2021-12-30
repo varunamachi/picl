@@ -6,7 +6,7 @@ import (
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
-	"github.com/varunamachi/clusterfox/cfx"
+	"github.com/varunamachi/picl/cmn"
 )
 
 type TuiHandler struct {
@@ -17,7 +17,7 @@ type TuiHandler struct {
 
 func NewTuiHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
 	if err := ui.Init(); err != nil {
-		return nil, nil, cfx.Errf(err, "failed to initialize termui")
+		return nil, nil, cmn.Errf(err, "failed to initialize termui")
 
 	}
 

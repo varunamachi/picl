@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/clusterfox/cfx"
-	"github.com/varunamachi/clusterfox/cfx/client"
+	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/picl/cmn/client"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -73,7 +73,7 @@ func NewMonitor(
 			if err := client.Login(gtx, &conf.AuthData); err != nil {
 				msg := "failed to login to agent"
 				logrus.WithError(err).Error(msg, conf.Name)
-				return nil, cfx.Errf(err, msg, conf.Name)
+				return nil, cmn.Errf(err, msg, conf.Name)
 			}
 		}
 		mon.clients = append(mon.clients, client)

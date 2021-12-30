@@ -15,8 +15,8 @@ func (fxErr *SshError) Unwrap() error {
 	return fxErr.Err
 }
 
-func (cfx *SshError) String() string {
-	return cfx.Err.Error() + ": " + cfx.Msg
+func (cmn *SshError) String() string {
+	return cmn.Err.Error() + ": " + cmn.Msg
 }
 
 func NewErrf(inner error, msg string, args ...interface{}) *SshError {
