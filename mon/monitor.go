@@ -51,24 +51,30 @@ type AgentResponse struct {
 }
 
 type Monitor struct {
-	config  *MonitorConfig
-	clients []*client.Client
-	handler Handler
+	config   *MonitorConfig
+	clients  []*client.Client
+	handler  Handler
+	relayCtl *RelayController
+	server   *cmn.Server
 }
 
 func NewMonitor(
 	gtx context.Context,
 	config *MonitorConfig,
-	hdl Handler) (*Monitor, error) {
+	realyConfig *RelayConfig,
+	hdl Handler,
+	server *cmn.Server) (*Monitor, error) {
 	mon := &Monitor{
 		config:  config,
 		clients: make([]*client.Client, 0, len(config.AgentConfig)),
 		handler: hdl,
+		server:  server,
 	}
 
 	for _, conf := range config.AgentConfig {
 		client := client.NewCustom(
-			conf.Address, "/api/v0", client.DefaultTransport(), 100*time.Millisecond)
+			conf.Address, "/api/v0", client.DefaultTransport(),
+			100*time.Millisecond)
 		if conf.AuthData.Data != nil {
 			if err := client.Login(gtx, &conf.AuthData); err != nil {
 				msg := "failed to login to agent"
@@ -78,14 +84,23 @@ func NewMonitor(
 		}
 		mon.clients = append(mon.clients, client)
 	}
+	var err error
+	mon.relayCtl, err = NewRelayController(realyConfig)
+	if err != nil {
+		return nil, err
+	}
+	mon.server.AddEndpoints(getRelayEndpoints(mon.relayCtl)...)
 	return mon, nil
 }
 
 func (mon *Monitor) Run(
-	gtx context.Context) error {
+	gtx context.Context, port uint32) error {
 
 	out := make(chan *AgentResponse)
-	defer close(out)
+	defer func() {
+		close(out)
+		mon.relayCtl.Close()
+	}()
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {
@@ -103,6 +118,9 @@ func (mon *Monitor) Run(
 				}
 			}
 		}
+	})
+	eg.Go(func() error {
+		return mon.server.Start(port)
 	})
 
 	return eg.Wait()
@@ -169,5 +187,21 @@ func (sh *simpleHandler) Handle(
 }
 
 func (sh *simpleHandler) Close() error {
+	return nil
+}
+
+type noOpHandler struct {
+}
+
+func NewNoOpHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
+	return &noOpHandler{}, context.Background(), nil
+}
+
+func (sh *noOpHandler) Handle(
+	gtx context.Context, resp *AgentResponse) error {
+	return nil
+}
+
+func (sh *noOpHandler) Close() error {
 	return nil
 }

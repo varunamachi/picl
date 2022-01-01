@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -41,9 +44,22 @@ func getMonitorCmd() *cli.Command {
 				Usage: "Name of the config, as: ~/.picl/'config'.monitor.json",
 				Value: "default",
 			},
+			&cli.UintFlag{
+				Name:  "port",
+				Usage: "Port for exposing monitor related REST endpoints",
+				Value: 8000,
+			},
+			&cli.StringFlag{
+				Name:  "handler",
+				Usage: "Handler type, one of: tui | simple | noop",
+				Value: "tui",
+			},
 		},
 		Action: func(etx *cli.Context) error {
 			cfg := etx.String("config")
+			port := etx.Uint("port")
+			handler := etx.String("handler")
+
 			cfgPath := filepath.Join(
 				cmn.MustGetUserHome(), ".picl", cfg+".monitor.json")
 			var config mon.MonitorConfig
@@ -57,22 +73,42 @@ func getMonitorCmd() *cli.Command {
 				return err
 			}
 
-			hdl, gtx, err := mon.NewTuiHandler(&config)
-			// hdl, gtx, err := mon.NewSimpleHandler(&config)
+			hdl, gtx, err := newHandler(handler, &config)
 			if err != nil {
 				return err
+			}
+			var printer io.Writer
+			if handler != "tui" {
+				printer = os.Stdout
 			}
 			defer hdl.Close()
 
-			monitor, err := mon.NewMonitor(gtx, &config, hdl)
+			rcfg := &mon.RelayConfig{
+				GpioPins:       []uint8{22, 23, 24, 25},
+				IsNormallyOpen: true,
+			}
+			monitor, err := mon.NewMonitor(
+				gtx, &config, rcfg, hdl, cmn.NewServer(printer))
 
 			if err != nil {
 				return err
 			}
-
-			return monitor.Run(gtx)
+			return monitor.Run(gtx, uint32(port))
 		},
 	}
+}
+
+func newHandler(hdl string, cfg *mon.MonitorConfig) (
+	mon.Handler, context.Context, error) {
+	switch hdl {
+	case "simple":
+		return mon.NewSimpleHandler(cfg)
+	case "noop":
+		return mon.NewNoOpHandler(cfg)
+	case "tui":
+		return mon.NewTuiHandler(cfg)
+	}
+	return nil, nil, fmt.Errorf("invalid handler '%s' selected", hdl)
 }
 
 func getBuildInstallCmd() *cli.Command {

@@ -1,2 +1,4 @@
-# clusterfox
-ClusterFox for RPi4 cluster
+# picl
+picl - Pi Cluster Controller
+
+
