@@ -83,7 +83,7 @@ func NewConn(opts *SshConnOpts) (*SshConn, error) {
 	address := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	client, err := ssh.Dial("tcp", address, config)
 	if err != nil {
-		const msg = "Failed to connect to remote host"
+		const msg = "failed to connect to remote host"
 		logrus.WithError(err).WithField("opts", opts.String()).Error(msg)
 		return nil, NewErrf(err, msg)
 	}

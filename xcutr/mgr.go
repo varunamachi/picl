@@ -65,7 +65,7 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 	for _, opts := range config.Opts {
 		conn, err := NewConn(opts)
 		if err != nil {
-			logrus.Warn("Failed to connect to %s", opts.Host)
+			logrus.Warn("Failed to connect to ", opts.Host)
 			continue
 		}
 		conns = append(conns, conn)
