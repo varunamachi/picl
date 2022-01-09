@@ -33,13 +33,18 @@ type Server struct {
 }
 
 func NewServer(printer io.Writer) *Server {
+
+	e := echo.New()
+	e.HideBanner = true
 	if printer == nil {
 		printer = &noopWriter{}
+		e.HidePort = true
 	}
+
 	return &Server{
 		categories: make(map[string][]*Endpoint),
 		endpoints:  make([]*Endpoint, 0, 100),
-		root:       echo.New(),
+		root:       e,
 		printer:    printer,
 	}
 }
@@ -53,6 +58,10 @@ func (s *Server) Start(port uint32) error {
 	s.configure()
 	s.Print()
 	return s.root.Start(fmt.Sprintf(":%d", port))
+}
+
+func (s *Server) Close() error {
+	return s.root.Close()
 }
 
 func (s *Server) configure() {

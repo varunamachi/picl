@@ -91,9 +91,15 @@ func getMonitorCmd() *cli.Command {
 				gtx, &config, rcfg, hdl, cmn.NewServer(printer))
 
 			if err != nil {
+				logrus.WithError(err).Error("failed to initialize monitor")
 				return err
 			}
-			return monitor.Run(gtx, uint32(port))
+			if err = monitor.Run(gtx, uint32(port)); err != nil {
+				logrus.WithError(err).Error("failed to run monitor")
+				return err
+			}
+
+			return nil
 		},
 	}
 }
@@ -139,7 +145,7 @@ func getBuildInstallCmd() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name: "picl-root",
-				Usage: "Root of the clusterfox repo. Default is assumes its " +
+				Usage: "Root of the picl repo. Default is assumes its " +
 					"the same repo where running version of picl is built",
 				Value: fxRootPath,
 			},

@@ -3,6 +3,7 @@ package mon
 import (
 	"context"
 	"fmt"
+	"os"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -36,9 +37,12 @@ func NewTuiHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
 		for {
 			e := <-uiEvents
 			switch e.ID {
-			case "q", "<C-c>":
+			case "q":
 				cancel()
-				return
+			case "<C-c>":
+				// ui.Clear()
+				fmt.Println("Terminating application")
+				os.Exit(1)
 			}
 
 		}

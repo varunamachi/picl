@@ -148,6 +148,13 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			Version:   "v1",
 			NeedsAuth: false,
 			Handler: func(etx echo.Context) error {
+				if rc == nil {
+					return &echo.HTTPError{
+						Message: "gpio features not enabled",
+						Code:    http.StatusInternalServerError,
+					}
+				}
+
 				slotStr := etx.Param("slot")
 				stateStr := etx.Param("state")
 
@@ -188,8 +195,14 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			Version:   "v1",
 			NeedsAuth: false,
 			Handler: func(etx echo.Context) error {
-				stateStr := etx.Param("state")
+				if rc == nil {
+					return &echo.HTTPError{
+						Message: "gpio features not enabled",
+						Code:    http.StatusInternalServerError,
+					}
+				}
 
+				stateStr := etx.Param("state")
 				state := strings.EqualFold(stateStr, "true")
 
 				for slot := range rc.pins {
@@ -221,8 +234,14 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			Version:   "v1",
 			NeedsAuth: false,
 			Handler: func(etx echo.Context) error {
-				slotStr := etx.Param("slot")
+				if rc == nil {
+					return &echo.HTTPError{
+						Message: "gpio features not enabled",
+						Code:    http.StatusInternalServerError,
+					}
+				}
 
+				slotStr := etx.Param("slot")
 				slot, err := strconv.Atoi(slotStr)
 				if err != nil {
 					return &echo.HTTPError{
@@ -252,6 +271,13 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			Version:   "v1",
 			NeedsAuth: false,
 			Handler: func(etx echo.Context) error {
+				if rc == nil {
+					return &echo.HTTPError{
+						Message: "gpio features not enabled",
+						Code:    http.StatusInternalServerError,
+					}
+				}
+
 				vals, err := rc.GetStates()
 				if err != nil {
 					return &echo.HTTPError{
@@ -271,6 +297,13 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			Version:   "v1",
 			NeedsAuth: false,
 			Handler: func(etx echo.Context) error {
+				if rc == nil {
+					return &echo.HTTPError{
+						Message: "gpio features not enabled",
+						Code:    http.StatusInternalServerError,
+					}
+				}
+
 				return etx.String(http.StatusOK, strconv.Itoa(len(rc.pins)))
 			},
 		},

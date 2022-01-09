@@ -87,7 +87,9 @@ func NewMonitor(
 	var err error
 	mon.relayCtl, err = NewRelayController(realyConfig)
 	if err != nil {
-		return nil, err
+		logrus.WithError(err).Warn("failed to initialize GPIO, " +
+			"disabling related features...")
+		// return nil, err
 	}
 	mon.server.AddEndpoints(getRelayEndpoints(mon.relayCtl)...)
 	return mon, nil
@@ -99,7 +101,9 @@ func (mon *Monitor) Run(
 	out := make(chan *AgentResponse)
 	defer func() {
 		close(out)
-		mon.relayCtl.Close()
+		if mon.relayCtl != nil {
+			mon.relayCtl.Close()
+		}
 	}()
 	eg := errgroup.Group{}
 
@@ -111,6 +115,7 @@ func (mon *Monitor) Run(
 		for {
 			select {
 			case <-gtx.Done():
+				mon.server.Close()
 				return gtx.Err()
 			case resp := <-out:
 				if err := mon.handler.Handle(gtx, resp); err != nil {
