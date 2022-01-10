@@ -18,7 +18,7 @@ type AgentConfig struct {
 	AuthData client.AuthData `json:"authData"`
 }
 
-type MonitorConfig struct {
+type Config struct {
 	Name        string         `json:"name"`
 	Height      int            `json:"height"`
 	Width       int            `json:"width"`
@@ -26,7 +26,7 @@ type MonitorConfig struct {
 	AgentConfig []*AgentConfig `json:"agentConfig"`
 }
 
-func (cfg *MonitorConfig) PrintSampleJSON() {
+func (cfg *Config) PrintSampleJSON() {
 	cfg.AgentConfig = []*AgentConfig{
 		{},
 	}
@@ -51,7 +51,7 @@ type AgentResponse struct {
 }
 
 type Monitor struct {
-	config   *MonitorConfig
+	config   *Config
 	clients  []*client.Client
 	handler  Handler
 	relayCtl *RelayController
@@ -60,7 +60,7 @@ type Monitor struct {
 
 func NewMonitor(
 	gtx context.Context,
-	config *MonitorConfig,
+	config *Config,
 	realyConfig *RelayConfig,
 	hdl Handler,
 	server *cmn.Server) (*Monitor, error) {
@@ -164,10 +164,10 @@ func (mon *Monitor) poll(
 }
 
 type simpleHandler struct {
-	monConfig *MonitorConfig
+	monConfig *Config
 }
 
-func NewSimpleHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
+func NewSimpleHandler(cfg *Config) (Handler, context.Context, error) {
 	return &simpleHandler{
 		monConfig: cfg,
 	}, context.Background(), nil
@@ -198,7 +198,7 @@ func (sh *simpleHandler) Close() error {
 type noOpHandler struct {
 }
 
-func NewNoOpHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
+func NewNoOpHandler(cfg *Config) (Handler, context.Context, error) {
 	return &noOpHandler{}, context.Background(), nil
 }
 

@@ -11,12 +11,12 @@ import (
 )
 
 type TuiHandler struct {
-	cfg    *MonitorConfig
+	cfg    *Config
 	table  *widgets.Table
 	values []*SysInfo
 }
 
-func NewTuiHandler(cfg *MonitorConfig) (Handler, context.Context, error) {
+func NewTuiHandler(cfg *Config) (Handler, context.Context, error) {
 	if err := ui.Init(); err != nil {
 		return nil, nil, cmn.Errf(err, "failed to initialize termui")
 

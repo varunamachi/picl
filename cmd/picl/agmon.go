@@ -62,7 +62,7 @@ func getMonitorCmd() *cli.Command {
 
 			cfgPath := filepath.Join(
 				cmn.MustGetUserHome(), ".picl", cfg+".monitor.json")
-			var config mon.MonitorConfig
+			var config mon.Config
 			if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
 				logrus.
 					WithError(err).
@@ -104,7 +104,7 @@ func getMonitorCmd() *cli.Command {
 	}
 }
 
-func newHandler(hdl string, cfg *mon.MonitorConfig) (
+func newHandler(hdl string, cfg *mon.Config) (
 	mon.Handler, context.Context, error) {
 	switch hdl {
 	case "simple":
