@@ -11,7 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/picl/config"
 	"github.com/varunamachi/picl/mon"
+	"github.com/varunamachi/picl/xcutr"
 )
 
 func getAgentCmd() *cli.Command {
@@ -26,8 +28,8 @@ func getAgentCmd() *cli.Command {
 				Value: 20202,
 			},
 		},
-		Action: func(etx *cli.Context) error {
-			port := etx.Int("port")
+		Action: func(ctx *cli.Context) error {
+			port := ctx.Int("port")
 			return mon.RunAgent(fmt.Sprintf(":%d", port))
 		},
 	}
@@ -55,25 +57,30 @@ func getMonitorCmd() *cli.Command {
 				Value: "tui",
 			},
 		},
-		Action: func(etx *cli.Context) error {
-			cfg := etx.String("config")
-			port := etx.Uint("port")
-			handler := etx.String("handler")
+		Action: func(ctx *cli.Context) error {
+			port := ctx.Uint("port")
+			handler := ctx.String("handler")
 
-			cfgPath := filepath.Join(
-				cmn.MustGetUserHome(), ".picl", cfg+".monitor.json")
-			var config mon.Config
-			if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
-				logrus.
-					WithError(err).
-					WithField("config", cfg).
-					Error("Failed to load config")
+			// cfgPath := filepath.Join(
+			// 	cmn.MustGetUserHome(), ".picl", cfg+".monitor.json")
+			// 	var config mon.Config
+			// 	cfg := ctx.String("config")
+			// if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
+			// 	logrus.
+			// 		WithError(err).
+			// 		WithField("config", cfg).
+			// 		Error("Failed to load config")
 
-				config.PrintSampleJSON()
+			// 	config.PrintSampleJSON()
+			// 	return err
+			// }
+
+			provider, err := config.NewFromCli(ctx)
+			if err != nil {
 				return err
 			}
 
-			hdl, gtx, err := newHandler(handler, &config)
+			hdl, gtx, err := newHandler(handler, provider.MonitorConfig())
 			if err != nil {
 				return err
 			}
@@ -88,7 +95,11 @@ func getMonitorCmd() *cli.Command {
 				IsNormallyOpen: true,
 			}
 			monitor, err := mon.NewMonitor(
-				gtx, &config, rcfg, hdl, cmn.NewServer(printer))
+				gtx,
+				provider.MonitorConfig(),
+				rcfg,
+				hdl,
+				cmn.NewServer(printer))
 
 			if err != nil {
 				logrus.WithError(err).Error("failed to initialize monitor")
@@ -155,12 +166,22 @@ func getBuildInstallCmd() *cli.Command {
 				Value: "arm64",
 			},
 		},
-		Action: func(etx *cli.Context) error {
-			config := etx.String("config")
-			root := etx.String("picl-root")
-			arch := etx.String("arch")
+		Action: func(ctx *cli.Context) error {
+			// config := ctx.String("config")
+			root := ctx.String("picl-root")
+			arch := ctx.String("arch")
 
-			cmdMan, err := createCmdManager(config)
+			provider, err := config.NewFromCli(ctx)
+			if err != nil {
+				return err
+			}
+
+			cmdMan, err := xcutr.NewCmdMan(
+				provider.ExecuterConfig(), xcutr.StdIO{
+					Out: os.Stdout,
+					Err: os.Stderr,
+					In:  os.Stdin,
+				})
 			if err != nil {
 				return err
 			}

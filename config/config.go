@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 
+	"github.com/urfave/cli/v2"
 	"github.com/varunamachi/picl/cmn"
 	"github.com/varunamachi/picl/cmn/client"
 	"github.com/varunamachi/picl/mon"
@@ -14,7 +16,7 @@ type Provider interface {
 	MonitorConfig() *mon.Config
 }
 
-type piclConfig struct {
+type PiclConfig struct {
 	Name     string `json:"name"`
 	SudoPass string `json:"sudoPass"`
 	Monitor  struct {
@@ -54,11 +56,22 @@ func (cp *configProvider) MonitorConfig() *mon.Config {
 	return cp.mCfg
 }
 
-func New() (Provider, error) {
-	cp := configProvider{}
+func NewFromCli(ctx *cli.Context) (Provider, error) {
+	cfg := ctx.String("config")
+	if cfg == "" {
+		cfg = "default"
+	}
+	cfgPath := filepath.Join(
+		cmn.MustGetUserHome(), ".picl", cfg+".cluster.json")
 
-	cfg := piclConfig{}
-	if err := cmn.LoadJsonFile(cp.path, &cfg); err != nil {
+	return New(cfgPath)
+}
+
+func New(path string) (Provider, error) {
+	cp := configProvider{path: path}
+
+	cfg := PiclConfig{}
+	if err := cmn.LoadJsonFile(path, &cfg); err != nil {
 		// Log and return appropriate error
 		return &cp, err
 	}

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/picl/config"
 	"github.com/varunamachi/picl/xcutr"
 )
 
@@ -46,7 +46,7 @@ func getPullCmd() *cli.Command {
 			&cli.StringFlag{
 				Name:    "config",
 				Usage:   "Server group configuration to use",
-				EnvVars: []string{"cmn_GROUP_CONFIG"},
+				EnvVars: []string{"GROUP_CONFIG"},
 				Value:   "default",
 			},
 			&cli.StringFlag{
@@ -174,7 +174,6 @@ func getReplicateCmd() *cli.Command {
 func getCmdMgrAndOpts(ctx *cli.Context) (
 	*xcutr.CmdMan, *xcutr.ExecOpts, error) {
 
-	cfg := ctx.String("config")
 	only := ctx.String("only")
 	except := ctx.String("except")
 
@@ -183,7 +182,17 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 			"Both 'only' and 'except' options cannot be given simultaneously")
 	}
 
-	cmdMgr, err := createCmdManager(cfg)
+	provider, err := config.NewFromCli(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cmdMgr, err := xcutr.NewCmdMan(provider.ExecuterConfig(), xcutr.StdIO{
+		Out: os.Stdout,
+		Err: os.Stderr,
+		In:  os.Stdin,
+	})
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -199,30 +208,30 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 	return cmdMgr, &execOpts, nil
 }
 
-func createCmdManager(cfg string) (*xcutr.CmdMan, error) {
-	cfgPath := filepath.Join(
-		cmn.MustGetUserHome(), ".picl", cfg+".cluster.json")
-	var config xcutr.Config
-	if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
-		logrus.
-			WithError(err).
-			WithField("config", cfg).
-			Error("Failed to load config")
-		return nil, err
-	}
+// func createCmdManager(cfg string) (*xcutr.CmdMan, error) {
+// 	cfgPath := filepath.Join(
+// 		cmn.MustGetUserHome(), ".picl", cfg+".cluster.json")
+// 	var config xcutr.Config
+// 	if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
+// 		logrus.
+// 			WithError(err).
+// 			WithField("config", cfg).
+// 			Error("Failed to load config")
+// 		return nil, err
+// 	}
 
-	cmdMgr, err := xcutr.NewCmdMan(&config, xcutr.StdIO{
-		Out: os.Stdout,
-		Err: os.Stderr,
-		In:  os.Stdin,
-	})
+// 	cmdMgr, err := xcutr.NewCmdMan(&config, xcutr.StdIO{
+// 		Out: os.Stdout,
+// 		Err: os.Stderr,
+// 		In:  os.Stdin,
+// 	})
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return cmdMgr, nil
-}
+// 	return cmdMgr, nil
+// }
 
 func withCmdManFlags(flags ...cli.Flag) []cli.Flag {
 	common := []cli.Flag{
