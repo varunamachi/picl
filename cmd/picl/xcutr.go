@@ -264,17 +264,6 @@ func withCmdManFlags(flags ...cli.Flag) []cli.Flag {
 	return append(common, flags...)
 }
 
-// func parseCommaSeperated(commaSeperatedStr string) map[string]struct{} {
-// 	vals := strings.Split(commaSeperatedStr, ",")
-// 	set := make(map[string]struct{})
-// 	for _, val := range vals {
-// 		if len(val) != 0 {
-// 			set[val] = struct{}{}
-// 		}
-// 	}
-// 	return set
-// }
-
 func toFileConfictPolicy(str string) xcutr.ExistingFilePolicy {
 	switch str {
 	case "ignore":

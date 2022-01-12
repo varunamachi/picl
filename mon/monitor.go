@@ -13,9 +13,9 @@ import (
 )
 
 type AgentConfig struct {
-	Name     string          `json:"name"`
-	Address  string          `json:"address"`
-	AuthData client.AuthData `json:"authData"`
+	Name     string           `json:"name"`
+	Address  string           `json:"address"`
+	AuthData *client.AuthData `json:"authData"`
 }
 
 type Config struct {
@@ -75,8 +75,8 @@ func NewMonitor(
 		client := client.NewCustom(
 			conf.Address, "/api/v0", client.DefaultTransport(),
 			100*time.Millisecond)
-		if conf.AuthData.Data != nil {
-			if err := client.Login(gtx, &conf.AuthData); err != nil {
+		if conf.AuthData != nil {
+			if err := client.Login(gtx, conf.AuthData); err != nil {
 				msg := "failed to login to agent"
 				logrus.WithError(err).Error(msg, conf.Name)
 				return nil, cmn.Errf(err, msg, conf.Name)

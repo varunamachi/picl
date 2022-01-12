@@ -126,15 +126,9 @@ func (rc *RelayController) toState(on bool) rpio.State {
 
 func (rc *RelayController) fromState(state rpio.State) bool {
 	if rc.isNO {
-		if state == rpio.Low {
-			return true
-		}
-		return false
+		return state == rpio.Low
 	} else {
-		if state == rpio.High {
-			return true
-		}
-		return false
+		return state != rpio.High
 	}
 }
 

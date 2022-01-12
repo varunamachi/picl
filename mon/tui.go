@@ -79,9 +79,9 @@ func (t *TuiHandler) Handle(gtx context.Context, resp *AgentResponse) error {
 		if val == nil {
 			t.table.Rows[index+1] = []string{
 				ag.Name,
-				fmt.Sprintf("N/A"),
-				fmt.Sprintf("N/A"),
-				fmt.Sprintf("N/A"),
+				"N/A",
+				"N/A",
+				"N/A",
 			}
 		} else {
 			t.table.Rows[index+1] = []string{
