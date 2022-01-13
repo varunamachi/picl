@@ -1,8 +1,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
-	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/urfave/cli/v2"
@@ -128,52 +129,101 @@ func New(path string) (Provider, error) {
 	return &cp, nil
 }
 
-func CreateConfigTemplate(w io.Writer, numHosts int) error {
+func CreateConfigTemplate(configName string, numHosts int) error {
 
 	config := PiclConfig{
 		Name:     "",
 		SudoPass: "",
 		Monitor: monitor{
-			Height: 0,
-			Width:  0,
+			Height: 20,
+			Width:  60,
 			GoArch: "AARCH64",
 		},
 		Hosts: make([]*host, numHosts),
 	}
-	config.Hosts = append(config.Hosts, &host{
-		Executer: executer{
-			SshPort:   20,
-			UserName:  "",
-			AuthMehod: "PublicKey",
-			// AuthData:  ,
-			Color: "",
-		},
-		Agent: agent{
-			Port:     8000,
-			Protocol: "http",
-			AuthData: nil,
-		},
-	})
+
+	if numHosts == 0 {
+		numHosts = 1
+	}
+
+	for i := 0; i < numHosts; i++ {
+		config.Hosts = append(config.Hosts, &host{
+			Name: fmt.Sprintf("host_%d", i),
+			Host: fmt.Sprintf("host%d", i),
+			Executer: executer{
+				SshPort:   20,
+				UserName:  "",
+				AuthMehod: "PublicKey",
+				// AuthData:  ,
+				Color: "",
+			},
+			Agent: agent{
+				Port:     8000,
+				Protocol: "http",
+				AuthData: nil,
+			},
+		})
+	}
+
+	jsonData, err := json.MarshalIndent(config, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	path := filepath.Join(
+		cmn.MustGetUserHome(), ".picl", configName+".cluster.json")
+	configFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintln(configFile, jsonData)
+	if err != nil {
+		return err
+	}
 	return nil
+}
 
-	// 		{
-	// 			Name     string `json:"name"`
-	// 			Host     string `json:"host"`
+func CreateConfig(name string) error {
+	gtr := cmn.StdUserInputReader()
 
-	// 		}
+	numHosts := gtr.ReadInt("Number of Hosts")
+	config := PiclConfig{
+		Name:  name,
+		Hosts: make([]*host, numHosts),
+	}
 
-	// 		Executer struct {
-	// 			SshPort   int                 `json:"sshPort"`
-	// 			UserName  string              `json:"userName"`
-	// 			AuthMehod xcutr.SshAuthMethod `json:"authMethod"`
-	// 			AuthData  map[string]string   `json:"authData"`
-	// 			Color     string              `json:"color"`
-	// 		} `json:"executer"`
-	// 		Agent struct {
-	// 			Port     int             `json:"port"`
-	// 			Protocol string          `json:"protocol"`
-	// 			AuthData client.AuthData `json:"authData"`
-	// 		} `json:"agent"`
-	// 	} `json:"hosts"`
-	// }
+	/**
+	- Check for common user name for all host, only ask per host if not given
+	- Sequentially assign color, dont ask
+	- Ask for common agent port
+	- Ask for common agent protocol
+	- Check if agent needs auth, if so ask for creds
+
+	- Store creds in a different file, with optional encryption
+	**/
+
+	config.Monitor.Height = gtr.ReadIntOr("Monitor Height", 20)
+	config.Monitor.Width = gtr.ReadIntOr("Monitor Width", 60)
+	config.Monitor.GoArch = gtr.ReadOption("Architecture", []string{
+		"386",
+		"amd64",
+		"arm",
+		"arm64",
+	}, "arm64")
+
+	fmt.Println()
+	for i := 0; i < numHosts; i++ {
+		host := config.Hosts[i]
+		host.Name = gtr.ReadString(fmt.Sprintf("Host[%d] Name", i))
+		host.Host = gtr.ReadString(fmt.Sprintf("Host[%d] Address", i))
+		host.Executer.SshPort = gtr.ReadIntOr("SSH Port", 22)
+
+		// First check if there is a common user name
+		host.Executer.UserName = gtr.ReadString("Username")
+		host.Executer.Color = gtr.ReadString("Color") //Should be an Option
+
+	}
+
+	return nil
 }
