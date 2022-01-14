@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/varunamachi/picl/cmn"
 	"github.com/varunamachi/picl/cmn/client"
@@ -43,6 +45,12 @@ type host struct {
 	Host     string   `json:"host"`
 	Executer executer `json:"executer"`
 	Agent    agent    `json:"agent"`
+}
+
+type Secrets struct {
+	CommonSudoPassword  string
+	CommonAgentPassword string
+	AgentPasswords      map[string]string
 }
 
 type PiclConfig struct {
@@ -185,12 +193,34 @@ func CreateConfigTemplate(configName string, numHosts int) error {
 }
 
 func CreateConfig(name string) error {
+
+	user, err := user.Current()
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to get current user")
+	}
+
 	gtr := cmn.StdUserInputReader()
 
-	numHosts := gtr.ReadInt("Number of Hosts")
+	numHosts := gtr.Int("Number of Hosts")
 	config := PiclConfig{
 		Name:  name,
 		Hosts: make([]*host, numHosts),
+	}
+
+	colors := []string{
+		"red",
+		"green",
+		"yellow",
+		"blue",
+		"magenta",
+		"cyan",
+		"white",
+	}
+
+	useCmnUser := gtr.BoolOr("Use Common User Name (SSH)?", true)
+	var cmnUser string
+	if useCmnUser {
+		cmnUser = gtr.StringOr("SSH User Name", user.Name)
 	}
 
 	/**
@@ -203,25 +233,39 @@ func CreateConfig(name string) error {
 	- Store creds in a different file, with optional encryption
 	**/
 
-	config.Monitor.Height = gtr.ReadIntOr("Monitor Height", 20)
-	config.Monitor.Width = gtr.ReadIntOr("Monitor Width", 60)
-	config.Monitor.GoArch = gtr.ReadOption("Architecture", []string{
+	config.Monitor.Height = gtr.IntOr("Monitor Height", 20)
+	config.Monitor.Width = gtr.IntOr("Monitor Width", 60)
+	config.Monitor.GoArch = gtr.Select("Architecture", []string{
 		"386",
 		"amd64",
 		"arm",
 		"arm64",
 	}, "arm64")
 
+	agentPort := gtr.IntOr("Agent Port", 20202)
+	agentProto := gtr.Select(
+		"Agent Protocol", []string{"http", "https"}, "http")
+
 	fmt.Println()
 	for i := 0; i < numHosts; i++ {
 		host := config.Hosts[i]
-		host.Name = gtr.ReadString(fmt.Sprintf("Host[%d] Name", i))
-		host.Host = gtr.ReadString(fmt.Sprintf("Host[%d] Address", i))
-		host.Executer.SshPort = gtr.ReadIntOr("SSH Port", 22)
+		host.Name = gtr.String(fmt.Sprintf("Host[%d] Name", i))
+		host.Host = gtr.String(fmt.Sprintf("Host[%d] Address", i))
 
-		// First check if there is a common user name
-		host.Executer.UserName = gtr.ReadString("Username")
-		host.Executer.Color = gtr.ReadString("Color") //Should be an Option
+		host.Executer = executer{
+			SshPort:  22,
+			Color:    colors[i%(len(colors)-1)],
+			UserName: cmnUser,
+		}
+
+		if !useCmnUser {
+			host.Executer.UserName = gtr.String("SSH Username")
+		}
+
+		host.Agent = agent{
+			Port:     agentPort,
+			Protocol: agentProto,
+		}
 
 	}
 

@@ -180,21 +180,23 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 	}
 	key, err := ioutil.ReadFile(pkFile)
 	if err != nil {
-		logrus.WithError(err).Error("Unable read the private key")
-		return nil, NewErrf(err, "Unable read the private key %s", err.Error())
+		const msg = "Unable read the private key"
+		logrus.WithError(err).Error()
+		return nil, NewErrf(err, msg)
 	}
 
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		logrus.WithError(err).Error("Unable read the private key")
-		return nil, NewErrf(err, "Unable read the private key")
+		const msg = "unable read the private key"
+		logrus.WithError(err).Error(msg)
+		return nil, NewErrf(err, msg)
 	}
 
 	khFile := filepath.Join(home, ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(khFile)
 	if err != nil {
-		const msg = "Could not create hostkeycallback function"
+		const msg = "could not create hostkeycallback function"
 		logrus.WithError(err).WithField("path", khFile).Error(msg)
 		return nil, NewErrf(err, msg)
 	}

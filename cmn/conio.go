@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -57,7 +56,7 @@ func StdUserInputReader() *UserInputReader {
 	}
 }
 
-func (uir *UserInputReader) ReadInt(name string) int {
+func (uir *UserInputReader) Int(name string) int {
 	fmt.Fprint(uir.output, "Please enter ", name, ": ")
 	str, err := uir.reader.ReadString('\n')
 	if err != nil {
@@ -72,7 +71,7 @@ func (uir *UserInputReader) ReadInt(name string) int {
 	return val
 }
 
-func (uir *UserInputReader) ReadFloat(name string) float64 {
+func (uir *UserInputReader) Float(name string) float64 {
 	fmt.Fprint(uir.output, "Please enter ", name, ": ")
 	str, err := uir.reader.ReadString('\n')
 	if err != nil {
@@ -87,7 +86,7 @@ func (uir *UserInputReader) ReadFloat(name string) float64 {
 	return val
 }
 
-func (uir *UserInputReader) ReadString(name string) string {
+func (uir *UserInputReader) String(name string) string {
 	fmt.Fprint(uir.output, "Please enter ", name, ": ")
 	str, err := uir.reader.ReadString('\n')
 	if err != nil {
@@ -101,7 +100,7 @@ func (uir *UserInputReader) ReadString(name string) string {
 	return str
 }
 
-func (uir *UserInputReader) ReadBoolOr(question string, def bool) bool {
+func (uir *UserInputReader) BoolOr(question string, def bool) bool {
 
 	msg := " [y|N]: "
 	if def {
@@ -109,28 +108,27 @@ func (uir *UserInputReader) ReadBoolOr(question string, def bool) bool {
 	}
 
 	fmt.Fprint(uir.output, question, msg)
-	str, err := uir.reader.ReadString('\n')
+	str, err := uir.reader.ReadByte()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read integer: ", err.Error())
 		os.Exit(1)
 	}
 
-	if str == "" {
-		return def
-	}
-
-	str = strings.ToLower(str)
-	if str == "y" || str == "yes" || str == "on" {
+	switch {
+	case str == 'y' || str == 'Y':
 		return true
-	} else if str == "n" || str == "no" || str == "off" {
+	case str == 'n' || str == 'N':
+		return false
+	case str == '\n':
+		return def
+	default:
+		fmt.Fprintln(uir.output, "Invalid value given")
+		os.Exit(2)
 		return false
 	}
-	fmt.Fprintln(uir.output, "Invalid bool value", str, "given")
-	os.Exit(2)
-	return false
 }
 
-func (uir *UserInputReader) ReadIntOr(name string, def int) int {
+func (uir *UserInputReader) IntOr(name string, def int) int {
 	fmt.Fprint(uir.output, "Please enter ", name, ": ")
 	str, err := uir.reader.ReadString('\n')
 	if err != nil {
@@ -149,7 +147,7 @@ func (uir *UserInputReader) ReadIntOr(name string, def int) int {
 	return val
 }
 
-func (uir *UserInputReader) ReadFloatOr(name string, def float64) float64 {
+func (uir *UserInputReader) FloatOr(name string, def float64) float64 {
 	fmt.Fprint(uir.output, "Please enter ", name, ": ")
 	str, err := uir.reader.ReadString('\n')
 	if err != nil {
@@ -169,7 +167,7 @@ func (uir *UserInputReader) ReadFloatOr(name string, def float64) float64 {
 	return val
 }
 
-func (uir *UserInputReader) ReadStringOr(name string, def string) string {
+func (uir *UserInputReader) StringOr(name string, def string) string {
 	fmt.Fprint(uir.output, "Please enter ", name, ": ")
 	str, err := uir.reader.ReadString('\n')
 	if err != nil {
@@ -182,7 +180,7 @@ func (uir *UserInputReader) ReadStringOr(name string, def string) string {
 	return str
 }
 
-func (uir *UserInputReader) ReadOption(
+func (uir *UserInputReader) Select(
 	name string, options []string, def string) string {
 
 	// fmt.Fprint(uir.output, "Please enter ", name, ": ")
