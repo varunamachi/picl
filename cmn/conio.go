@@ -227,5 +227,18 @@ func (uir *UserInputReader) Select(
 	}
 
 	fmt.Fprintln(uir.output, "Invalid option ", str, " given")
+	os.Exit(2)
 	return ""
+}
+
+//Secret - asks password from user, does not echo charectors
+func (uir *UserInputReader) Secret(msg string) (secret string, err error) {
+	fmt.Fprint(uir.output, msg)
+	var pbyte []byte
+	pbyte, err = terminal.ReadPassword(int(syscall.Stdin))
+	if err == nil {
+		secret = string(pbyte)
+		fmt.Println()
+	}
+	return secret, err
 }
