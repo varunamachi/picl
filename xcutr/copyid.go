@@ -50,7 +50,7 @@ func CopyId(sshCfg []*SshConnOpts) error {
 			continue
 		}
 	}
-	if failures != nil {
+	if failures != 0 {
 		msg := fmt.Sprintf(
 			"could not copy id to all nodes (%d out of %d failed)",
 			failures, len(sshCfg))
