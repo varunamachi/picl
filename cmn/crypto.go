@@ -20,17 +20,24 @@ var (
 	ErrFile   = errors.New("failed read/write file")
 )
 
-type Cryptor struct {
+type FileCrytor interface {
+	EncryptToFile(reader io.Reader, path string) error
+	DecryptFromFile(path string, writer io.Writer) error
+	Encrypt(in []byte) ([]byte, error)
+	Decrypt(in []byte) ([]byte, error)
+}
+
+type aesGCMCryptor struct {
 	password string
 }
 
-func NewCryptor(password string) *Cryptor {
-	return &Cryptor{
+func NewCryptor(password string) FileCrytor {
+	return &aesGCMCryptor{
 		password: password,
 	}
 }
 
-func (c *Cryptor) getKey() ([]byte, error) {
+func (c *aesGCMCryptor) getKey() ([]byte, error) {
 	salt := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return nil, Errf(err, "failed to create salt")
@@ -40,7 +47,7 @@ func (c *Cryptor) getKey() ([]byte, error) {
 	return key, nil
 }
 
-func (c *Cryptor) EncryptToFile(reader io.Reader, path string) error {
+func (c *aesGCMCryptor) EncryptToFile(reader io.Reader, path string) error {
 
 	in, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -58,7 +65,7 @@ func (c *Cryptor) EncryptToFile(reader io.Reader, path string) error {
 	return nil
 }
 
-func (c *Cryptor) DecryptFromFile(path string, writer io.Writer) error {
+func (c *aesGCMCryptor) DecryptFromFile(path string, writer io.Writer) error {
 	in, err := os.ReadFile(path)
 	if err != nil {
 		return Errf(err, "failed to read ciphertext from file at '%s'", path)
@@ -76,7 +83,7 @@ func (c *Cryptor) DecryptFromFile(path string, writer io.Writer) error {
 	return nil
 }
 
-func (c *Cryptor) Encrypt(in []byte) ([]byte, error) {
+func (c *aesGCMCryptor) Encrypt(in []byte) ([]byte, error) {
 
 	gcm, err := c.getGCM()
 	if err != nil {
@@ -91,7 +98,7 @@ func (c *Cryptor) Encrypt(in []byte) ([]byte, error) {
 	return gcm.Seal(nil, nonce, in, nil), nil
 }
 
-func (c *Cryptor) Decrypt(in []byte) ([]byte, error) {
+func (c *aesGCMCryptor) Decrypt(in []byte) ([]byte, error) {
 
 	gcm, err := c.getGCM()
 	if err != nil {
@@ -113,7 +120,7 @@ func (c *Cryptor) Decrypt(in []byte) ([]byte, error) {
 
 }
 
-func (c *Cryptor) getGCM() (cipher.AEAD, error) {
+func (c *aesGCMCryptor) getGCM() (cipher.AEAD, error) {
 	key, err := c.getKey()
 	if err != nil {
 		return nil, err

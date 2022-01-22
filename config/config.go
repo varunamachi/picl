@@ -61,7 +61,7 @@ type PiclConfig struct {
 }
 
 type configProvider struct {
-	path string
+	// path string
 	eCfg *xcutr.Config
 	mCfg *mon.Config
 }
@@ -86,14 +86,17 @@ func NewFromCli(ctx *cli.Context) (Provider, error) {
 }
 
 func New(path string) (Provider, error) {
-	cp := configProvider{path: path}
 
 	cfg := PiclConfig{}
 	if err := cmn.LoadJsonFile(path, &cfg); err != nil {
 		// Log and return appropriate error
-		return &cp, err
+		return nil, err
 	}
+	return new(&cfg)
+}
 
+func new(cfg *PiclConfig) (Provider, error) {
+	cp := configProvider{}
 	cp.eCfg = &xcutr.Config{
 		Name:     cfg.Name,
 		SudoPass: cfg.SudoPass,
@@ -259,7 +262,8 @@ func CreateConfig(name string) error {
 		}
 
 		if !useCmnUser {
-			host.Executer.UserName = gtr.String("SSH Username")
+			msg := fmt.Sprintf("SSH Username for %s", host.Host)
+			host.Executer.UserName = gtr.String(msg)
 		}
 
 		host.Agent = agent{
@@ -267,6 +271,36 @@ func CreateConfig(name string) error {
 			Protocol: agentProto,
 		}
 
+	}
+
+	provider, err := new(&config)
+	if err != nil {
+		return err
+	}
+
+	copyId := gtr.BoolOr("Copy SSH Public Key to Nodes (ssh-copy-id)? ", true)
+	if copyId {
+		pw := ""
+		if useCmnUser {
+			pw = gtr.Secret("Common Passowrd: ")
+		}
+		opts := provider.ExecuterConfig().Opts
+		for _, opt := range opts {
+			opt.AuthMehod = xcutr.SshAuthPassword
+			if !useCmnUser {
+				msg := fmt.Sprintf("Password for %s@%s: ",
+					opt.UserName, opt.Host)
+				pw = gtr.Secret(msg)
+			}
+			opt.AuthData = map[string]string{
+				"password": pw,
+			}
+
+		}
+
+		if err := xcutr.CopyId(opts); err != nil {
+			return err
+		}
 	}
 
 	return nil

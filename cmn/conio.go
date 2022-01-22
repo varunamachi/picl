@@ -232,13 +232,14 @@ func (uir *UserInputReader) Select(
 }
 
 //Secret - asks password from user, does not echo charectors
-func (uir *UserInputReader) Secret(msg string) (secret string, err error) {
+func (uir *UserInputReader) Secret(msg string) string {
 	fmt.Fprint(uir.output, msg)
-	var pbyte []byte
-	pbyte, err = terminal.ReadPassword(int(syscall.Stdin))
+	pbyte, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err == nil {
-		secret = string(pbyte)
 		fmt.Println()
+		return string(pbyte)
 	}
-	return secret, err
+	fmt.Fprintln(uir.output, "Error getting password")
+	os.Exit(2)
+	return ""
 }

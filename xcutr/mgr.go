@@ -138,7 +138,7 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 	wg.Wait()
 	if failed != 0 {
 		return NewErrf(ErrCmdExec,
-			"Failed to execute command on %d targets", failed)
+			"failed to execute command on %d targets", failed)
 	}
 	return nil
 }
@@ -146,13 +146,13 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 	conn := cm.connMap[node]
 	if conn == nil {
-		logrus.WithField("nodeName", node).Error("Invalid node name given")
-		return NewErrf(ErrInvalidNode, "Invalid node name given: %s", node)
+		logrus.WithField("nodeName", node).Error("invalid node name given")
+		return NewErrf(ErrInvalidNode, "invalid node name given: %s", node)
 	}
 
 	sftpClient, err := sftp.NewClient(conn.client)
 	if err != nil {
-		const msg = "Failed to create SFTP client"
+		const msg = "failed to create SFTP client"
 		logrus.WithError(err).WithField("nodeName", node).Error(msg)
 		return NewErrf(err, msg)
 	}
@@ -416,13 +416,13 @@ func (cm *CmdMan) Remove(remotePath string, opts *ExecOpts) error {
 			if err != nil {
 				logrus.WithError(err).
 					WithField("node", conn.Name()).
-					Error("Failed to create SFTP client")
+					Error("failed to create SFTP client")
 				failed++
 			}
 
 			if remoteExists(client, remotePath) {
 				if err = client.Remove(remotePath); err != nil {
-					const msg = "Failed to remove remote file"
+					const msg = "failed to remove remote file"
 					logrus.WithError(err).
 						WithFields(logrus.Fields{
 							"node":       conn.Name(),
@@ -439,7 +439,7 @@ func (cm *CmdMan) Remove(remotePath string, opts *ExecOpts) error {
 	wg.Wait()
 	if failed != 0 {
 		return NewErrf(ErrCmdExec,
-			"Failed to execute remove command on %d targets", failed)
+			"failed to execute remove command on %d targets", failed)
 	}
 	return nil
 }

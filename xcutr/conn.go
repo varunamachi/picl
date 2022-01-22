@@ -112,6 +112,15 @@ func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 	if err != nil {
 		return err
 	}
+
+	if stdIO == nil {
+		stdIO = &StdIO{
+			Out: os.Stdout,
+			Err: os.Stderr,
+			In:  os.Stdin,
+		}
+	}
+
 	defer closeSession(sess)
 	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out, color(conn.opts.Color))
 	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err, color(conn.opts.Color))
@@ -128,6 +137,14 @@ func (conn *SshConn) ExecSudo(cmd, sudoPass string, stdIO *StdIO) error {
 	sess, err := conn.createSession()
 	if err != nil {
 		return err
+	}
+
+	if stdIO == nil {
+		stdIO = &StdIO{
+			Out: os.Stdout,
+			Err: os.Stderr,
+			In:  os.Stdin,
+		}
 	}
 
 	cmd = "sudo -S " + cmd
@@ -147,7 +164,7 @@ func (conn *SshConn) ExecSudo(cmd, sudoPass string, stdIO *StdIO) error {
 func (conn *SshConn) createSession() (*ssh.Session, error) {
 	session, err := conn.client.NewSession()
 	if err != nil {
-		const msg = "Failed to create SSH session"
+		const msg = "failed to create SSH session"
 		logrus.WithError(err).WithField("opts", conn.opts.String()).Error(msg)
 		return nil, NewErrf(err, msg)
 	}
@@ -165,24 +182,15 @@ func closeSession(sess *ssh.Session) error {
 }
 
 func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	pkFile := filepath.Join(home, ".ssh", "id_rsa")
-	if !cmn.ExistsAsFile(pkFile) {
-		pkFile = filepath.Join(home, ".ssh", "id_ed25519")
-	}
-
-	if keyFile, found := opts.AuthData["keyFile"]; found {
-		pkFile = filepath.Join(home, ".ssh", keyFile)
-	}
-	key, err := ioutil.ReadFile(pkFile)
+	key, err := GetPrivateKeyFileContent(opts)
 	if err != nil {
-		const msg = "Unable read the private key"
-		logrus.WithError(err).Error()
-		return nil, NewErrf(err, msg)
+		return nil, err
 	}
 
 	// Create the Signer for this private key.
@@ -216,7 +224,7 @@ func getPasswordConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 	khFile := filepath.Join(home, ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(khFile)
 	if err != nil {
-		const msg = "Could not create hostkeycallback function"
+		const msg = "could not create hostkeycallback function"
 		logrus.WithError(err).WithField("path", khFile).Error(msg)
 		return nil, NewErrf(err, msg)
 	}
@@ -280,4 +288,51 @@ func color(color string) fc.Attribute {
 		return fc.BgWhite
 	}
 	return fc.FgWhite
+}
+
+func GetPrivateKeyFileContent(opts *SshConnOpts) ([]byte, error) {
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	pkFile := filepath.Join(home, ".ssh", "id_rsa")
+	if !cmn.ExistsAsFile(pkFile) {
+		pkFile = filepath.Join(home, ".ssh", "id_ed25519")
+	}
+
+	if keyFile, found := opts.AuthData["keyFile"]; found {
+		pkFile = filepath.Join(home, ".ssh", keyFile)
+	}
+	key, err := ioutil.ReadFile(pkFile)
+	if err != nil {
+		const msg = "Unable read the private key"
+		logrus.WithError(err).Error()
+		return nil, NewErrf(err, msg)
+	}
+
+	return key, nil
+}
+
+func GetPublicKeyFileContent() (string, error) {
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	pkFile := filepath.Join(home, ".ssh", "id_rsa.pub")
+	if !cmn.ExistsAsFile(pkFile) {
+		pkFile = filepath.Join(home, ".ssh", "id_ed25519.pub")
+	}
+
+	key, err := ioutil.ReadFile(pkFile)
+	if err != nil {
+		const msg = "Unable read the public key"
+		logrus.WithError(err).Error()
+		return "", NewErrf(err, msg)
+	}
+
+	return string(key), nil
 }
