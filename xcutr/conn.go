@@ -76,7 +76,6 @@ func NewConn(opts *SshConnOpts) (*SshConn, error) {
 		config, err = getPasswordConfig(opts)
 	}
 	if err != nil {
-
 		return nil, err
 	}
 

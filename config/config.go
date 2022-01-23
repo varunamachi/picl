@@ -175,24 +175,7 @@ func CreateConfigTemplate(configName string, numHosts int) error {
 			},
 		})
 	}
-
-	jsonData, err := json.MarshalIndent(config, "", "    ")
-	if err != nil {
-		return err
-	}
-
-	path := filepath.Join(
-		cmn.MustGetUserHome(), ".picl", configName+".cluster.json")
-	configFile, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintln(configFile, jsonData)
-	if err != nil {
-		return err
-	}
-	return nil
+	return generateConfig(configName, &config)
 }
 
 func CreateConfig(name string) error {
@@ -273,6 +256,10 @@ func CreateConfig(name string) error {
 
 	}
 
+	if err := generateConfig(name, &config); err != nil {
+		return err
+	}
+
 	provider, err := new(&config)
 	if err != nil {
 		return err
@@ -303,5 +290,26 @@ func CreateConfig(name string) error {
 		}
 	}
 
+	return nil
+}
+
+func generateConfig(configName string, config *PiclConfig) error {
+	jsonData, err := json.MarshalIndent(config, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	path := filepath.Join(
+		cmn.MustGetUserHome(), ".picl", configName+".cluster.json")
+	configFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer configFile.Close()
+
+	_, err = fmt.Fprintln(configFile, jsonData)
+	if err != nil {
+		return err
+	}
 	return nil
 }

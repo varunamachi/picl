@@ -164,6 +164,14 @@ func (cpr *idCopier) copyId(pubKey *AuthzKeysRow) error {
 	}
 
 	success = true
+
+	cpr.info("verifying connection")
+	if err := cpr.verifyConnection(); err != nil {
+		cpr.err("connection verification failed: %v", err)
+	} else {
+		cpr.info("connection successfully verified")
+	}
+
 	return nil
 
 }
@@ -220,7 +228,16 @@ func (cpr *idCopier) writeAuthorizedKeys(
 
 func (cpr *idCopier) verifyConnection() error {
 	// try to connect with public key and check if the copy id worked
-	return nil
+
+	copy := *cpr.conn.opts
+	copy.AuthMehod = SshAuthPublicKey
+	copy.AuthData = map[string]string{}
+	conn, err := NewConn(&copy)
+	if err != nil {
+		return err
+	}
+	return conn.Close()
+
 }
 
 func processLine(line string) (*AuthzKeysRow, error) {

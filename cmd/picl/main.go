@@ -24,6 +24,7 @@ func main() {
 			getAgentCmd(),
 			getMonitorCmd(),
 			getBuildInstallCmd(),
+			getInteractiveSetupCommand(),
 		},
 		Usage: "If no valid subcommand is given - it acts as 'exec' " +
 			"subcommand. I.e It treats the argument as a " +
