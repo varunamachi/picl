@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -56,8 +57,8 @@ func StdUserInputReader() *UserInputReader {
 }
 
 func (uir *UserInputReader) Int(name string) int {
-	fmt.Fprint(uir.output, "Please enter ", name, ": ")
-	str, err := uir.reader.ReadString('\n')
+	fmt.Fprint(uir.output, "Please enter a number for '", name, "'*: ")
+	str, err := uir.readString()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read integer: ", err.Error())
 		os.Exit(1)
@@ -71,8 +72,8 @@ func (uir *UserInputReader) Int(name string) int {
 }
 
 func (uir *UserInputReader) Float(name string) float64 {
-	fmt.Fprint(uir.output, "Please enter ", name, ": ")
-	str, err := uir.reader.ReadString('\n')
+	fmt.Fprint(uir.output, "Please enter real number for '", name, "'*: ")
+	str, err := uir.readString()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read integer: ", err.Error())
 		os.Exit(1)
@@ -86,50 +87,54 @@ func (uir *UserInputReader) Float(name string) float64 {
 }
 
 func (uir *UserInputReader) String(name string) string {
-	fmt.Fprint(uir.output, "Please enter ", name, ": ")
-	str, err := uir.reader.ReadString('\n')
+	fmt.Fprint(uir.output, "Please enter a string for ", name, "*: ")
+	str, err := uir.readString()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read string: ", err.Error())
 		os.Exit(1)
 	}
 	if str == "" {
-		fmt.Fprintln(uir.output, "Empty string given: ", err.Error())
-		os.Exit(2)
+		fmt.Fprintln(uir.output, "Empty string given")
 	}
 	return str
 }
 
 func (uir *UserInputReader) BoolOr(question string, def bool) bool {
 
-	msg := " [y|N]: "
+	msg := " [y|N|q]: "
 	if def {
-		msg = " [Y|n]: "
+		msg = " [Y|n|q]: "
 	}
 
-	fmt.Fprint(uir.output, question, msg)
-	str, err := uir.reader.ReadByte()
-	if err != nil {
-		fmt.Fprintln(uir.output, "Failed to read boolean: ", err.Error())
-		os.Exit(1)
-	}
+	for {
+		fmt.Fprint(uir.output, question, msg)
+		str, err := uir.readString()
+		if err != nil {
+			fmt.Fprintln(uir.output, "Failed to read boolean: ", err.Error())
+			os.Exit(1)
+		}
+		str = str
 
-	switch {
-	case str == 'y' || str == 'Y':
-		return true
-	case str == 'n' || str == 'N':
-		return false
-	case str == '\n':
-		return def
-	default:
-		fmt.Fprintln(uir.output, "Invalid value given")
-		os.Exit(2)
-		return false
+		switch {
+		case str == "":
+			return def
+		case EqFold(str, "y", "yes", "true", "on"):
+			return true
+		case EqFold(str, "n", "no", "false", "off"):
+			return false
+		case EqFold(str, "q", "Q"):
+			fmt.Println("Exiting...")
+			os.Exit(0)
+		default:
+			fmt.Println("Invalid input, try again")
+		}
 	}
 }
 
 func (uir *UserInputReader) IntOr(name string, def int) int {
-	fmt.Fprint(uir.output, "Please enter ", name, ": ")
-	str, err := uir.reader.ReadString('\n')
+	fmt.Fprintf(uir.output,
+		"Please enter integer value for '%s' [%d]: ", name, def)
+	str, err := uir.readString()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read integer: ", err.Error())
 		os.Exit(1)
@@ -147,8 +152,9 @@ func (uir *UserInputReader) IntOr(name string, def int) int {
 }
 
 func (uir *UserInputReader) FloatOr(name string, def float64) float64 {
-	fmt.Fprint(uir.output, "Please enter ", name, ": ")
-	str, err := uir.reader.ReadString('\n')
+	fmt.Fprintf(uir.output,
+		"Please enter real number value for '%s' [%.2f]: ", name, def)
+	str, err := uir.readString()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read integer: ", err.Error())
 		os.Exit(1)
@@ -167,8 +173,8 @@ func (uir *UserInputReader) FloatOr(name string, def float64) float64 {
 }
 
 func (uir *UserInputReader) StringOr(name string, def string) string {
-	fmt.Fprint(uir.output, "Please enter ", name, ": ")
-	str, err := uir.reader.ReadString('\n')
+	fmt.Fprintf(uir.output, "Please enter string for '%s' [%s]: ", name, def)
+	str, err := uir.readString()
 	if err != nil {
 		fmt.Fprintln(uir.output, "Failed to read integer: ", err.Error())
 		os.Exit(1)
@@ -187,18 +193,19 @@ func (uir *UserInputReader) Select(
 		"Choose one of the following options for '%s':\n",
 		name)
 	for idx, opt := range options {
-		star := ""
 		if opt == def {
-			star = "*"
+			fmt.Fprintf(uir.output, "\t\t%d. [%s]\n", idx+1, opt)
+			continue
 		}
-		fmt.Fprintf(uir.output, "%3d. %s%s", idx+1, opt, star)
+		fmt.Fprintf(uir.output, "\t\t%d. %s\n", idx+1, opt)
 	}
 
 	for {
-		fmt.Printf(
-			"Please enter valid option (between 1 and %d): ",
-			len(options))
-		str, err := uir.reader.ReadString('\n')
+		fmt.Fprintf(
+			uir.output,
+			"\tEnter value between 1 and %d (inclusive) for '%s' [%s]: ",
+			len(options), name, def)
+		str, err := uir.readString()
 		if err != nil {
 			fmt.Fprintln(uir.output, "Failed to read an option: ", err.Error())
 			os.Exit(1)
@@ -235,7 +242,7 @@ func (uir *UserInputReader) Select(
 // 			buf.WriteString(", ")
 // 		}
 // 	}
-// 	buf.WriteString(")")
+// 	buf.WriteString(")")z
 
 // 	if !found {
 // 		fmt.Fprintln(uir.output,
@@ -244,7 +251,7 @@ func (uir *UserInputReader) Select(
 // 	}
 
 // 	fmt.Fprintln(uir.output, buf.String())
-// 	str, err := uir.reader.ReadString('\n')
+// 	str, err := uir.readString()
 // 	if err != nil {
 // 		fmt.Fprintln(uir.output, "Failed to read an option: ", err.Error())
 // 		os.Exit(1)
@@ -275,4 +282,12 @@ func (uir *UserInputReader) Secret(msg string) string {
 	fmt.Fprintln(uir.output, "Error getting password")
 	os.Exit(2)
 	return ""
+}
+
+func (uir *UserInputReader) readString() (string, error) {
+	str, err := uir.reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(str), nil
 }

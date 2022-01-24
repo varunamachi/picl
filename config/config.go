@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -47,11 +48,12 @@ type host struct {
 	Agent    agent    `json:"agent"`
 }
 
-type Secrets struct {
-	CommonSudoPassword  string
-	CommonAgentPassword string
-	AgentPasswords      map[string]string
-}
+// type secrets struct {
+// 	CommonSSHPassword  string
+// 	SSHPasswords map[string]string
+// 	CommonAgentPassword string
+// 	AgentPasswords      map[string]string
+// }
 
 type PiclConfig struct {
 	Name     string  `json:"name"`
@@ -188,7 +190,8 @@ func CreateConfig(name string) error {
 	gtr := cmn.StdUserInputReader()
 
 	numHosts := gtr.Int("Number of Hosts")
-	config := PiclConfig{
+
+	conf := PiclConfig{
 		Name:  name,
 		Hosts: make([]*host, numHosts),
 	}
@@ -206,7 +209,7 @@ func CreateConfig(name string) error {
 	useCmnUser := gtr.BoolOr("Use Common User Name (SSH)?", true)
 	var cmnUser string
 	if useCmnUser {
-		cmnUser = gtr.StringOr("SSH User Name", user.Name)
+		cmnUser = gtr.StringOr("SSH User Name", user.Username)
 	}
 
 	/**
@@ -219,14 +222,15 @@ func CreateConfig(name string) error {
 	- Store creds in a different file, with optional encryption
 	**/
 
-	config.Monitor.Height = gtr.IntOr("Monitor Height", 20)
-	config.Monitor.Width = gtr.IntOr("Monitor Width", 60)
-	config.Monitor.GoArch = gtr.Select("Architecture", []string{
+	conf.Monitor.Height = gtr.IntOr("Monitor Height", 20)
+	conf.Monitor.Width = gtr.IntOr("Monitor Width", 60)
+	conf.Monitor.GoArch = gtr.Select("Architecture", []string{
 		"386",
 		"amd64",
 		"arm",
 		"arm64",
 	}, "arm64")
+	conf.Hosts = make([]*host, numHosts)
 
 	agentPort := gtr.IntOr("Agent Port", 20202)
 	agentProto := gtr.Select(
@@ -234,33 +238,44 @@ func CreateConfig(name string) error {
 
 	fmt.Println()
 	for i := 0; i < numHosts; i++ {
-		host := config.Hosts[i]
-		host.Name = gtr.String(fmt.Sprintf("Host[%d] Name", i))
-		host.Host = gtr.String(fmt.Sprintf("Host[%d] Address", i))
 
-		host.Executer = executer{
-			SshPort:  22,
-			Color:    colors[i%(len(colors)-1)],
-			UserName: cmnUser,
-		}
-
-		if !useCmnUser {
-			msg := fmt.Sprintf("SSH Username for %s", host.Host)
-			host.Executer.UserName = gtr.String(msg)
-		}
-
-		host.Agent = agent{
-			Port:     agentPort,
-			Protocol: agentProto,
+		for {
+			msg := fmt.Sprintf(
+				"Host-%d Name & Address (space separated) (q to quit):", i+1)
+			hostStr := gtr.String(msg)
+			parts := strings.Fields(hostStr)
+			if len(parts) == 2 {
+				host := &host{
+					Name: strings.TrimSpace(parts[0]),
+					Host: strings.TrimSpace(parts[1]),
+					Executer: executer{
+						SshPort:  22,
+						Color:    colors[i%(len(colors)-1)],
+						UserName: cmnUser,
+					},
+					Agent: agent{
+						Port:     agentPort,
+						Protocol: agentProto,
+					},
+				}
+				if !useCmnUser {
+					msg := fmt.Sprintf("SSH Username for %s", host.Host)
+					host.Executer.UserName = gtr.String(msg)
+				}
+				conf.Hosts[i] = host
+				break
+			} else if cmn.EqFold(hostStr, "q") {
+				os.Exit(0)
+			}
 		}
 
 	}
 
-	if err := generateConfig(name, &config); err != nil {
+	if err := generateConfig(name, &conf); err != nil {
 		return err
 	}
 
-	provider, err := new(&config)
+	provider, err := new(&conf)
 	if err != nil {
 		return err
 	}
@@ -270,6 +285,7 @@ func CreateConfig(name string) error {
 		pw := ""
 		if useCmnUser {
 			pw = gtr.Secret("Common Passowrd: ")
+			conf.SudoPass = pw
 		}
 		opts := provider.ExecuterConfig().Opts
 		for _, opt := range opts {
@@ -307,7 +323,7 @@ func generateConfig(configName string, config *PiclConfig) error {
 	}
 	defer configFile.Close()
 
-	_, err = fmt.Fprintln(configFile, jsonData)
+	_, err = fmt.Fprintln(configFile, string(jsonData))
 	if err != nil {
 		return err
 	}

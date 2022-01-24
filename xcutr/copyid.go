@@ -245,7 +245,7 @@ func processLine(line string) (*AuthzKeysRow, error) {
 
 	parts := strings.Fields(line)
 	index := 0
-	if !startsWithKey(line) {
+	if !startsWithKey(strings.TrimSpace(line)) {
 		azk.Options = strings.TrimSpace(parts[index])
 		index++
 	}
@@ -257,14 +257,14 @@ func processLine(line string) (*AuthzKeysRow, error) {
 
 	azk.Comment = strings.TrimSpace(parts[index])
 
-	return nil, nil
+	return &azk, nil
 }
 
 func startsWithKey(part string) bool {
-	return part == "ssh-rsa" ||
-		part == "ssh-dss" ||
-		part == "ssh-ed25519" ||
-		part == "ecdsa-sha" ||
-		part == "sk-ecdsa-sha" ||
-		part == "sk-ssh-ed25519"
+	return strings.HasPrefix(part, "ssh-rsa") ||
+		strings.HasPrefix(part, "ssh-dss") ||
+		strings.HasPrefix(part, "ssh-ed25519") ||
+		strings.HasPrefix(part, "ecdsa-sha") ||
+		strings.HasPrefix(part, "sk-ecdsa-sha") ||
+		strings.HasPrefix(part, "sk-ssh-ed25519")
 }
