@@ -10,13 +10,13 @@ import (
 	"syscall"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 //askSecret - asks password from user, does not echo charectors
 func askSecret() (secret string, err error) {
 	var pbyte []byte
-	pbyte, err = terminal.ReadPassword(int(syscall.Stdin))
+	pbyte, err = term.ReadPassword(int(syscall.Stdin))
 	if err == nil {
 		secret = string(pbyte)
 		fmt.Println()
@@ -113,7 +113,6 @@ func (uir *UserInputReader) BoolOr(question string, def bool) bool {
 			fmt.Fprintln(uir.output, "Failed to read boolean: ", err.Error())
 			os.Exit(1)
 		}
-		str = str
 
 		switch {
 		case str == "":
@@ -220,62 +219,11 @@ func (uir *UserInputReader) Select(
 	}
 }
 
-// func (uir *UserInputReader) Select(
-// 	name string, options []string, def string) string {
-
-// 	// fmt.Fprint(uir.output, "Please enter ", name, ": ")
-// 	buf := bytes.NewBufferString("Please enter ")
-// 	buf.WriteString(name)
-// 	buf.WriteString("(")
-
-// 	found := false
-// 	for i, o := range options {
-// 		if def == o {
-// 			buf.WriteString("[")
-// 			buf.WriteString(o)
-// 			buf.WriteString("]")
-// 		} else {
-// 			buf.WriteString(o)
-// 		}
-
-// 		if i != len(options)-1 {
-// 			buf.WriteString(", ")
-// 		}
-// 	}
-// 	buf.WriteString(")")z
-
-// 	if !found {
-// 		fmt.Fprintln(uir.output,
-// 			"Default value: '", def, "' is not part of options")
-// 		os.Exit(1)
-// 	}
-
-// 	fmt.Fprintln(uir.output, buf.String())
-// 	str, err := uir.readString()
-// 	if err != nil {
-// 		fmt.Fprintln(uir.output, "Failed to read an option: ", err.Error())
-// 		os.Exit(1)
-// 	}
-// 	if str == "" {
-// 		return def
-// 	}
-
-// 	for _, o := range options {
-// 		if str == o {
-// 			return str
-// 		}
-// 	}
-
-// 	fmt.Fprintln(uir.output, "Invalid option ", str, " given")
-// 	os.Exit(2)
-// 	return ""
-// }
-
 //Secret - asks password from user, does not echo charectors
 func (uir *UserInputReader) Secret(msg string) string {
 	for {
 		fmt.Fprint(uir.output, msg, ": ")
-		pbyte, err := terminal.ReadPassword(int(syscall.Stdin))
+		pbyte, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			fmt.Fprintln(uir.output, "Error getting password")
 			os.Exit(2)

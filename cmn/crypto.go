@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/xdg-go/pbkdf2"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 var (
