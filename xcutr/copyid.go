@@ -173,7 +173,6 @@ func (cpr *idCopier) copyId(pubKey *AuthzKeysRow) error {
 	}
 
 	return nil
-
 }
 
 func (cpr *idCopier) readAuthorizedKeys() ([]*AuthzKeysRow, error) {
@@ -231,7 +230,6 @@ func (cpr *idCopier) verifyConnection() error {
 
 	copy := *cpr.conn.opts
 	copy.AuthMehod = SshAuthPublicKey
-	copy.AuthData = map[string]string{}
 	conn, err := NewConn(&copy)
 	if err != nil {
 		return err

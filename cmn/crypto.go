@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"golang.org/x/crypto/pbkdf2"
+	"github.com/xdg-go/pbkdf2"
 )
 
 var (
@@ -38,11 +38,12 @@ func NewCryptor(password string) FileCrytor {
 }
 
 func (c *aesGCMCryptor) getKey() ([]byte, error) {
+	// return []byte("passphrasewhichneedstobe32bytes!"), nil
+
 	salt := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return nil, Errf(err, "failed to create salt")
 	}
-
 	key := pbkdf2.Key([]byte(c.password), salt, 65536, 32, sha256.New)
 	return key, nil
 }

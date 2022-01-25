@@ -26,15 +26,14 @@ const (
 )
 
 type SshConnOpts struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	UserName string `json:"userName"`
-	// CanSudo   bool              `json:"canSudo"`
-	// SudoPass  string            `json:"sudoPass"`
-	AuthMehod SshAuthMethod     `json:"authMethod"`
-	AuthData  map[string]string `json:"authData"`
-	Color     string            `json:"color"`
+	Name      string        `json:"name"`
+	Host      string        `json:"host"`
+	Port      int           `json:"port"`
+	UserName  string        `json:"userName"`
+	Password  string        `json:"password"`
+	AuthMehod SshAuthMethod `json:"authMethod"`
+	KeyFile   string        `json:"keyFile"`
+	Color     string        `json:"color"`
 }
 
 func (opts *SshConnOpts) String() string {
@@ -45,7 +44,6 @@ func (opts *SshConnOpts) String() string {
 func (opts *SshConnOpts) FillDefaults() {
 	if opts.AuthMehod == "" {
 		opts.AuthMehod = SshAuthPublicKey
-		opts.AuthData = map[string]string{}
 	}
 	if opts.Port == 0 {
 		opts.Port = 22
@@ -132,7 +130,7 @@ func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 	return nil
 }
 
-func (conn *SshConn) ExecSudo(cmd, sudoPass string, stdIO *StdIO) error {
+func (conn *SshConn) ExecSudo(cmd string, stdIO *StdIO) error {
 	sess, err := conn.createSession()
 	if err != nil {
 		return err
@@ -150,7 +148,7 @@ func (conn *SshConn) ExecSudo(cmd, sudoPass string, stdIO *StdIO) error {
 	sess.Stdout = NewNodeWriter(conn.Name(), stdIO.Out, color(conn.opts.Color))
 	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err, color(conn.opts.Color))
 	fmt.Fprintln(sess.Stderr)
-	sess.Stdin = strings.NewReader(sudoPass)
+	sess.Stdin = strings.NewReader(conn.opts.Password)
 
 	if err := sess.Run(cmd); err != nil {
 		// logrus.WithError(err).WithField("cmd", cmd).
@@ -231,7 +229,7 @@ func getPasswordConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 	return &ssh.ClientConfig{
 		User: opts.UserName,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(opts.AuthData["password"]),
+			ssh.Password(opts.Password),
 		},
 		HostKeyCallback: hostKeyCallback,
 	}, nil
@@ -301,8 +299,8 @@ func GetPrivateKeyFileContent(opts *SshConnOpts) ([]byte, error) {
 		pkFile = filepath.Join(home, ".ssh", "id_ed25519")
 	}
 
-	if keyFile, found := opts.AuthData["keyFile"]; found {
-		pkFile = filepath.Join(home, ".ssh", keyFile)
+	if opts.KeyFile != "" {
+		pkFile = filepath.Join(home, ".ssh", opts.KeyFile)
 	}
 	key, err := ioutil.ReadFile(pkFile)
 	if err != nil {

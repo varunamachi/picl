@@ -10,13 +10,13 @@ func getInteractiveSetupCommand() *cli.Command {
 		Name: "setup",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:  "config-name",
+				Name:  "config",
 				Usage: "Name of the configuration that determines",
 				Value: "default",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			cfgName := ctx.String("config-name")
+			cfgName := ctx.String("config")
 			return config.CreateConfig(cfgName)
 		},
 	}

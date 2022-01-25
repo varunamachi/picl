@@ -273,15 +273,20 @@ func (uir *UserInputReader) Select(
 
 //Secret - asks password from user, does not echo charectors
 func (uir *UserInputReader) Secret(msg string) string {
-	fmt.Fprint(uir.output, msg)
-	pbyte, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err == nil {
+	for {
+		fmt.Fprint(uir.output, msg, ": ")
+		pbyte, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			fmt.Fprintln(uir.output, "Error getting password")
+			os.Exit(2)
+			return ""
+		}
+		str := strings.TrimSpace(string(pbyte))
 		fmt.Println()
-		return string(pbyte)
+		if str != "" {
+			return str
+		}
 	}
-	fmt.Fprintln(uir.output, "Error getting password")
-	os.Exit(2)
-	return ""
 }
 
 func (uir *UserInputReader) readString() (string, error) {

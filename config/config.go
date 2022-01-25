@@ -30,9 +30,10 @@ type monitor struct {
 type executer struct {
 	SshPort   int                 `json:"sshPort"`
 	UserName  string              `json:"userName"`
+	Password  string              `json:"password"`
 	AuthMehod xcutr.SshAuthMethod `json:"authMethod"`
-	AuthData  map[string]string   `json:"authData"`
-	Color     string              `json:"color"`
+	// AuthData  map[string]string   `json:"authData"`
+	Color string `json:"color"`
 }
 
 type agent struct {
@@ -48,18 +49,10 @@ type host struct {
 	Agent    agent    `json:"agent"`
 }
 
-// type secrets struct {
-// 	CommonSSHPassword  string
-// 	SSHPasswords map[string]string
-// 	CommonAgentPassword string
-// 	AgentPasswords      map[string]string
-// }
-
 type PiclConfig struct {
-	Name     string  `json:"name"`
-	SudoPass string  `json:"sudoPass"`
-	Monitor  monitor `json:"monitor"`
-	Hosts    []*host `json:"hosts"`
+	Name    string  `json:"name"`
+	Monitor monitor `json:"monitor"`
+	Hosts   []*host `json:"hosts"`
 }
 
 type configProvider struct {
@@ -82,16 +75,48 @@ func NewFromCli(ctx *cli.Context) (Provider, error) {
 		cfg = "default"
 	}
 	cfgPath := filepath.Join(
-		cmn.MustGetUserHome(), ".picl", cfg+".cluster.json")
+		cmn.MustGetUserHome(), ".picl", cfg+".config.json")
+	if cmn.ExistsAsFile(cfgPath) {
+		data, err := os.ReadFile(cfgPath)
+		if err != nil {
+			err := fmt.Errorf("failed to read configuration %s: %w", cfg, err)
+			logrus.WithError(err).Error()
+			return nil, err
+		}
+		return New(data)
+	}
 
-	return New(cfgPath)
+	cfgPath = filepath.Join(
+		cmn.MustGetUserHome(), ".picl", cfg+".config.json.enc")
+	if cmn.ExistsAsFile(cfgPath) {
+		pw := cmn.AskPassword("Please Enter Config Password")
+
+		data, err := os.ReadFile(cfgPath)
+		if err != nil {
+			e := fmt.Errorf("failed to read configuration %s", cfg)
+			logrus.WithError(err).Error(e.Error())
+			return nil, e
+		}
+
+		data, err = cmn.NewCryptor(pw).Decrypt(data)
+		if err != nil {
+			e := fmt.Errorf(
+				"failed to decrypt configuration %s", cfg)
+			logrus.WithError(err).Error(e.Error())
+			return nil, e
+		}
+
+		return New(data)
+	}
+
+	err := fmt.Errorf("could not find configuration %s", cfg)
+	logrus.Error(err.Error())
+	return nil, err
 }
 
-func New(path string) (Provider, error) {
-
+func New(data []byte) (Provider, error) {
 	cfg := PiclConfig{}
-	if err := cmn.LoadJsonFile(path, &cfg); err != nil {
-		// Log and return appropriate error
+	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
 	return new(&cfg)
@@ -100,9 +125,8 @@ func New(path string) (Provider, error) {
 func new(cfg *PiclConfig) (Provider, error) {
 	cp := configProvider{}
 	cp.eCfg = &xcutr.Config{
-		Name:     cfg.Name,
-		SudoPass: cfg.SudoPass,
-		Opts:     make([]*xcutr.SshConnOpts, 0, len(cfg.Hosts)),
+		Name: cfg.Name,
+		Opts: make([]*xcutr.SshConnOpts, 0, len(cfg.Hosts)),
 	}
 	cp.mCfg = &mon.Config{
 		Name:        cfg.Name,
@@ -119,7 +143,7 @@ func new(cfg *PiclConfig) (Provider, error) {
 			Port:      h.Executer.SshPort,
 			UserName:  h.Executer.UserName,
 			AuthMehod: h.Executer.AuthMehod,
-			AuthData:  h.Executer.AuthData,
+			Password:  h.Executer.Password,
 			Color:     h.Executer.Color,
 		})
 
@@ -145,8 +169,7 @@ func new(cfg *PiclConfig) (Provider, error) {
 func CreateConfigTemplate(configName string, numHosts int) error {
 
 	config := PiclConfig{
-		Name:     "",
-		SudoPass: "",
+		Name: "",
 		Monitor: monitor{
 			Height: 20,
 			Width:  60,
@@ -177,7 +200,7 @@ func CreateConfigTemplate(configName string, numHosts int) error {
 			},
 		})
 	}
-	return generateConfig(configName, &config)
+	return generateConfig(&config, configName, false, "")
 }
 
 func CreateConfig(name string) error {
@@ -207,20 +230,12 @@ func CreateConfig(name string) error {
 	}
 
 	useCmnUser := gtr.BoolOr("Use Common User Name (SSH)?", true)
-	var cmnUser string
+	var cmnUser, cmnPwd string
 	if useCmnUser {
 		cmnUser = gtr.StringOr("SSH User Name", user.Username)
+		msg := fmt.Sprintf("Common SSH Password for '%s'", cmnUser)
+		cmnPwd = gtr.Secret(msg)
 	}
-
-	/**
-	- Check for common user name for all host, only ask per host if not given
-	- Sequentially assign color, dont ask
-	- Ask for common agent port
-	- Ask for common agent protocol
-	- Check if agent needs auth, if so ask for creds
-
-	- Store creds in a different file, with optional encryption
-	**/
 
 	conf.Monitor.Height = gtr.IntOr("Monitor Height", 20)
 	conf.Monitor.Width = gtr.IntOr("Monitor Width", 60)
@@ -241,7 +256,7 @@ func CreateConfig(name string) error {
 
 		for {
 			msg := fmt.Sprintf(
-				"Host-%d Name & Address (space separated) (q to quit):", i+1)
+				"Host-%d Name & Address (space separated) (q to quit)", i+1)
 			hostStr := gtr.String(msg)
 			parts := strings.Fields(hostStr)
 			if len(parts) == 2 {
@@ -252,6 +267,7 @@ func CreateConfig(name string) error {
 						SshPort:  22,
 						Color:    colors[i%(len(colors)-1)],
 						UserName: cmnUser,
+						Password: cmnPwd,
 					},
 					Agent: agent{
 						Port:     agentPort,
@@ -261,6 +277,9 @@ func CreateConfig(name string) error {
 				if !useCmnUser {
 					msg := fmt.Sprintf("SSH Username for %s", host.Host)
 					host.Executer.UserName = gtr.String(msg)
+					msg = fmt.Sprintf("SSH Password for %s@%s",
+						host.Executer.UserName, host.Host)
+					host.Executer.Password = gtr.Secret(msg)
 				}
 				conf.Hosts[i] = host
 				break
@@ -271,7 +290,13 @@ func CreateConfig(name string) error {
 
 	}
 
-	if err := generateConfig(name, &conf); err != nil {
+	var pw string
+	encrypt := gtr.BoolOr("Do you want to encrypt the config?", false)
+	if encrypt {
+		pw = gtr.Secret("Password for encryption")
+	}
+
+	if err := generateConfig(&conf, name, encrypt, pw); err != nil {
 		return err
 	}
 
@@ -282,23 +307,10 @@ func CreateConfig(name string) error {
 
 	copyId := gtr.BoolOr("Copy SSH Public Key to Nodes (ssh-copy-id)? ", true)
 	if copyId {
-		pw := ""
-		if useCmnUser {
-			pw = gtr.Secret("Common Passowrd: ")
-			conf.SudoPass = pw
-		}
+
 		opts := provider.ExecuterConfig().Opts
 		for _, opt := range opts {
 			opt.AuthMehod = xcutr.SshAuthPassword
-			if !useCmnUser {
-				msg := fmt.Sprintf("Password for %s@%s: ",
-					opt.UserName, opt.Host)
-				pw = gtr.Secret(msg)
-			}
-			opt.AuthData = map[string]string{
-				"password": pw,
-			}
-
 		}
 
 		if err := xcutr.CopyId(opts); err != nil {
@@ -309,23 +321,34 @@ func CreateConfig(name string) error {
 	return nil
 }
 
-func generateConfig(configName string, config *PiclConfig) error {
+func generateConfig(
+	config *PiclConfig, configName string, encrypt bool, pw string) error {
 	jsonData, err := json.MarshalIndent(config, "", "    ")
 	if err != nil {
 		return err
 	}
 
-	path := filepath.Join(
-		cmn.MustGetUserHome(), ".picl", configName+".cluster.json")
+	ext := ".config.json"
+	if encrypt {
+		ext = ".config.json.enc"
+	}
+
+	path := filepath.Join(cmn.MustGetUserHome(), ".picl", configName+ext)
 	configFile, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer configFile.Close()
 
-	_, err = fmt.Fprintln(configFile, string(jsonData))
-	if err != nil {
+	if encrypt {
+		jsonData, err = cmn.NewCryptor(pw).Encrypt(jsonData)
+		if err != nil {
+			return err
+		}
+		_, err = configFile.Write(jsonData)
 		return err
 	}
-	return nil
+
+	_, err = configFile.WriteString(string(jsonData))
+	return err
 }

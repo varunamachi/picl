@@ -29,9 +29,9 @@ type StdIO struct {
 }
 
 type Config struct {
-	Name     string         `json:"name"`
-	SudoPass string         `json:"sudoPass"`
-	Opts     []*SshConnOpts `json:"opts"`
+	Name string `json:"name"`
+	// SudoPass string         `json:"sudoPass"`
+	Opts []*SshConnOpts `json:"opts"`
 }
 
 type CmdMan struct {
@@ -124,7 +124,7 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 		go func() {
 			var err error
 			if opts.WithSudo {
-				err = conn.ExecSudo(cmd, cm.config.SudoPass, &cm.io)
+				err = conn.ExecSudo(cmd, &cm.io)
 			} else {
 				err = conn.Exec(cmd, &cm.io)
 			}
@@ -265,8 +265,7 @@ func (cm *CmdMan) PushData(
 
 			if opts.WithSudo {
 				cmd := fmt.Sprintf("mv %s %s", remotePath, remoteDest)
-				if err := conn.ExecSudo(
-					cmd, cm.config.SudoPass, &cm.io); err != nil {
+				if err := conn.ExecSudo(cmd, &cm.io); err != nil {
 					return cmn.Errf(err,
 						"with sudo: failed to move temp file to destination")
 				}
@@ -364,15 +363,13 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 
 				parent := filepath.Dir(remoteDest)
 				cmd := fmt.Sprintf("mkdir -p %s", parent)
-				if err := conn.ExecSudo(
-					cmd, cm.config.SudoPass, &cm.io); err != nil {
+				if err := conn.ExecSudo(cmd, &cm.io); err != nil {
 					failed++
 					return
 				}
 
 				cmd = fmt.Sprintf("mv %s %s", remotePath, remoteDest)
-				if err := conn.ExecSudo(
-					cmd, cm.config.SudoPass, &cm.io); err != nil {
+				if err := conn.ExecSudo(cmd, &cm.io); err != nil {
 					failed++
 					return
 				}
