@@ -126,7 +126,7 @@ func new(cfg *PiclConfig) (Provider, error) {
 	cp := configProvider{}
 	cp.eCfg = &xcutr.Config{
 		Name: cfg.Name,
-		Opts: make([]*xcutr.SshConnOpts, 0, len(cfg.Hosts)),
+		Opts: make([]*xcutr.SshConnOpts, len(cfg.Hosts)),
 	}
 	cp.mCfg = &mon.Config{
 		Name:        cfg.Name,
@@ -136,8 +136,8 @@ func new(cfg *PiclConfig) (Provider, error) {
 		AgentConfig: make([]*mon.AgentConfig, len(cfg.Hosts)),
 	}
 
-	for _, h := range cfg.Hosts {
-		cp.eCfg.Opts = append(cp.eCfg.Opts, &xcutr.SshConnOpts{
+	for i, h := range cfg.Hosts {
+		cp.eCfg.Opts[i] = &xcutr.SshConnOpts{
 			Name:      h.Name,
 			Host:      h.Host,
 			Port:      h.Executer.SshPort,
@@ -145,7 +145,7 @@ func new(cfg *PiclConfig) (Provider, error) {
 			AuthMehod: h.Executer.AuthMehod,
 			Password:  h.Executer.Password,
 			Color:     h.Executer.Color,
-		})
+		}
 
 		protocol := h.Agent.Protocol
 		if protocol == "" {
@@ -153,14 +153,14 @@ func new(cfg *PiclConfig) (Provider, error) {
 		}
 		port := h.Agent.Port
 		if port == 0 {
-			port = 8000
+			port = 20202
 		}
 		address := fmt.Sprintf("%s://%s:%d", protocol, h.Host, port)
-		cp.mCfg.AgentConfig = append(cp.mCfg.AgentConfig, &mon.AgentConfig{
+		cp.mCfg.AgentConfig[i] = &mon.AgentConfig{
 			Name:     h.Name,
 			Address:  address,
 			AuthData: h.Agent.AuthData,
-		})
+		}
 	}
 
 	return &cp, nil

@@ -61,26 +61,15 @@ func getMonitorCmd() *cli.Command {
 			port := ctx.Uint("port")
 			handler := ctx.String("handler")
 
-			// cfgPath := filepath.Join(
-			// 	cmn.MustGetUserHome(), ".picl", cfg+".monitor.json")
-			// 	var config mon.Config
-			// 	cfg := ctx.String("config")
-			// if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
-			// 	logrus.
-			// 		WithError(err).
-			// 		WithField("config", cfg).
-			// 		Error("Failed to load config")
-
-			// 	config.PrintSampleJSON()
-			// 	return err
-			// }
-
 			provider, err := config.NewFromCli(ctx)
 			if err != nil {
 				return err
 			}
 
-			hdl, gtx, err := newHandler(handler, provider.MonitorConfig())
+			monConfig := provider.MonitorConfig()
+			cmn.PrintJSON(monConfig)
+
+			hdl, gtx, err := newHandler(handler, monConfig)
 			if err != nil {
 				return err
 			}
@@ -96,7 +85,7 @@ func getMonitorCmd() *cli.Command {
 			}
 			monitor, err := mon.NewMonitor(
 				gtx,
-				provider.MonitorConfig(),
+				monConfig,
 				rcfg,
 				hdl,
 				cmn.NewServer(printer))
