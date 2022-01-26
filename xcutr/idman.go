@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/sirupsen/logrus"
 	"github.com/varunamachi/picl/cmn"
 )
 
@@ -46,7 +47,8 @@ func CopyId(sshCfg []*SshConnOpts) error {
 		}
 		if err = copier.copyId(pubRow); err != nil {
 			failures++
-			fmt.Printf("Skipping ID copy for %s", opts.Host)
+			// fmt.Printf("Skipping ID copy for %s (%s): %s\n",
+			// 	opts.Name, opts.Host, err.Error())
 			continue
 		}
 	}
@@ -54,21 +56,21 @@ func CopyId(sshCfg []*SshConnOpts) error {
 		msg := fmt.Sprintf(
 			"could not copy id to all nodes (%d out of %d failed)",
 			failures, len(sshCfg))
-		fmt.Println(msg)
+		logrus.Error(msg)
 		return errors.New(msg)
 	}
 
 	return nil
 }
 
-type idCopier struct {
+type idMan struct {
 	conn         *SshConn
 	fcon         *sftp.Client
 	authzKeyPath string
 	stdIO        StdIO
 }
 
-func newCopier(opts *SshConnOpts) (*idCopier, error) {
+func newCopier(opts *SshConnOpts) (*idMan, error) {
 	conn, err := NewConn(opts)
 	if err != nil {
 		return nil, err
@@ -79,7 +81,7 @@ func newCopier(opts *SshConnOpts) (*idCopier, error) {
 		return nil, cmn.Errf(err, "failed to create sftp client")
 	}
 
-	return &idCopier{
+	return &idMan{
 		conn: conn,
 		fcon: sftpClient,
 		authzKeyPath: filepath.Join(
@@ -92,29 +94,31 @@ func newCopier(opts *SshConnOpts) (*idCopier, error) {
 	}, nil
 }
 
-func (cpr *idCopier) info(msg string, args ...interface{}) {
-	fmt.Fprintf(cpr.stdIO.Out, msg, args...)
+func (cpr *idMan) info(msg string, args ...interface{}) {
+	fmt.Fprintf(cpr.stdIO.Out, msg+"\n", args...)
 }
 
-func (cpr *idCopier) err(msg string, args ...interface{}) {
-	fmt.Fprintf(cpr.stdIO.Err, msg, args...)
+func (cpr *idMan) err(msg string, args ...interface{}) {
+	fmt.Fprintf(cpr.stdIO.Out, msg+"\n", args...)
 }
 
-func (cpr *idCopier) copyId(pubKey *AuthzKeysRow) error {
+func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 
 	cpr.info("reading authorized_keys file from %s", cpr.authzKeyPath)
 	rows, err := cpr.readAuthorizedKeys()
 	if err != nil {
+		cpr.err("failed to read authrozied_keys file: %s", err.Error())
 		return err
 	}
 
 	backupFilePath := ""
-	if len(rows) == 0 {
+	if len(rows) != 0 {
 		backupFilePath = cpr.authzKeyPath + "_" +
 			time.Now().Format("20060102_150405")
 
 		cmd := fmt.Sprintf("cp %s %s", cpr.authzKeyPath, backupFilePath)
 		if err = cpr.conn.Exec(cmd, nil); err != nil {
+			cpr.err("failed to back up authorized_keys file: %s", err.Error())
 			return cmn.Errf(err, "failed to back up authorized_keys file")
 		}
 	}
@@ -175,10 +179,10 @@ func (cpr *idCopier) copyId(pubKey *AuthzKeysRow) error {
 	return nil
 }
 
-func (cpr *idCopier) readAuthorizedKeys() ([]*AuthzKeysRow, error) {
+func (cpr *idMan) readAuthorizedKeys() ([]*AuthzKeysRow, error) {
 
 	file, err := cpr.fcon.Open(cpr.authzKeyPath)
-	if err == sftp.ErrSSHFxNoSuchFile {
+	if errors.Is(err, os.ErrNotExist) {
 		return make([]*AuthzKeysRow, 0, 1), nil
 	} else if err != nil {
 		return nil, err
@@ -209,7 +213,7 @@ func (cpr *idCopier) readAuthorizedKeys() ([]*AuthzKeysRow, error) {
 	return rows, nil
 }
 
-func (cpr *idCopier) writeAuthorizedKeys(
+func (cpr *idMan) writeAuthorizedKeys(
 	writer io.Writer, keys []*AuthzKeysRow) error {
 
 	for _, key := range keys {
@@ -225,7 +229,7 @@ func (cpr *idCopier) writeAuthorizedKeys(
 	return nil
 }
 
-func (cpr *idCopier) verifyConnection() error {
+func (cpr *idMan) verifyConnection() error {
 	// try to connect with public key and check if the copy id worked
 
 	copy := *cpr.conn.opts

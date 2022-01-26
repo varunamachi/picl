@@ -119,6 +119,7 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 
 	var wg sync.WaitGroup
 	wg.Add(len(conns))
+	lock := sync.Mutex{}
 	for _, conn := range conns {
 		conn := conn
 		go func() {
@@ -129,7 +130,12 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 				err = conn.Exec(cmd, &cm.io)
 			}
 			if err != nil {
-				failed++
+				func() {
+					lock.Lock()
+					defer lock.Unlock()
+					failed++
+
+				}()
 			}
 			wg.Done()
 		}()

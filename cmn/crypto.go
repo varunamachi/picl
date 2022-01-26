@@ -1,7 +1,6 @@
 package cmn
 
 import (
-	"bufio"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -18,13 +17,20 @@ var (
 	ErrKey    = errors.New("failed generate key")
 	ErrCipher = errors.New("failed to create cipher")
 	ErrFile   = errors.New("failed read/write file")
+	ErrInput  = errors.New("invalid input")
 )
+
+const saltSize = 32
+const magicSize = 4
+
+var magic = []byte{0xE1, 0xEA, 0xE1, 0xA0}
 
 type FileCrytor interface {
 	EncryptToFile(reader io.Reader, path string) error
 	DecryptFromFile(path string, writer io.Writer) error
 	Encrypt(in []byte) ([]byte, error)
 	Decrypt(in []byte) ([]byte, error)
+	IsEncrypted(in []byte) bool
 }
 
 type aesGCMCryptor struct {
@@ -35,17 +41,6 @@ func NewCryptor(password string) FileCrytor {
 	return &aesGCMCryptor{
 		password: password,
 	}
-}
-
-func (c *aesGCMCryptor) getKey() ([]byte, error) {
-	// return []byte("passphrasewhichneedstobe32bytes!"), nil
-
-	salt := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return nil, Errf(err, "failed to create salt")
-	}
-	key := pbkdf2.Key([]byte(c.password), salt, 65536, 32, sha256.New)
-	return key, nil
 }
 
 func (c *aesGCMCryptor) EncryptToFile(reader io.Reader, path string) error {
@@ -77,16 +72,25 @@ func (c *aesGCMCryptor) DecryptFromFile(path string, writer io.Writer) error {
 		return err
 	}
 
-	bw := bufio.NewWriter(writer)
-	if _, err = bw.Write(out); err != nil {
+	// bw := bufio.NewWriter(writer)
+	// if _, err = bw.Write(out); err != nil {
+	if _, err = writer.Write(out); err != nil {
 		return Errf(err, "failed write encrypted data to file")
 	}
 	return nil
 }
 
 func (c *aesGCMCryptor) Encrypt(in []byte) ([]byte, error) {
+	if c.IsEncrypted(in) {
+		return nil, Errf(ErrInput, "the data is already encrypted")
+	}
 
-	gcm, err := c.getGCM()
+	salt := make([]byte, saltSize)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return nil, Errf(err, "failed to create salt")
+	}
+
+	gcm, err := c.getGCM(salt)
 	if err != nil {
 		return nil, err
 	}
@@ -96,15 +100,27 @@ func (c *aesGCMCryptor) Encrypt(in []byte) ([]byte, error) {
 		return nil, Errf(err, "failed to create nonce")
 	}
 
-	return gcm.Seal(nil, nonce, in, nil), nil
+	val := gcm.Seal(nonce, nonce, in, nil)
+	out := make([]byte, 0, len(val)+saltSize+magicSize)
+	out = append(out, magic...)
+	out = append(out, salt...)
+	out = append(out, val...)
+
+	return out, nil
 }
 
 func (c *aesGCMCryptor) Decrypt(in []byte) ([]byte, error) {
+	if !c.IsEncrypted(in) {
+		return nil, Errf(ErrInput, "the input is not properly encrypted")
+	}
 
-	gcm, err := c.getGCM()
+	in = in[magicSize:]
+	salt := in[:saltSize]
+	gcm, err := c.getGCM(salt)
 	if err != nil {
 		return nil, err
 	}
+	in = in[saltSize:]
 
 	nonceSize := gcm.NonceSize()
 	if len(in) < nonceSize {
@@ -118,15 +134,11 @@ func (c *aesGCMCryptor) Decrypt(in []byte) ([]byte, error) {
 	}
 
 	return out, nil
-
 }
 
-func (c *aesGCMCryptor) getGCM() (cipher.AEAD, error) {
-	key, err := c.getKey()
-	if err != nil {
-		return nil, err
-	}
+func (c *aesGCMCryptor) getGCM(salt []byte) (cipher.AEAD, error) {
 
+	key := pbkdf2.Key([]byte(c.password), salt, 65536, 32, sha256.New)
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, Errf(err, "failed to create AES cipher")
@@ -138,4 +150,16 @@ func (c *aesGCMCryptor) getGCM() (cipher.AEAD, error) {
 	}
 
 	return gcm, nil
+}
+
+func (c *aesGCMCryptor) IsEncrypted(in []byte) bool {
+	if len(in) < magicSize+saltSize {
+		return false
+	}
+	for i := 0; i < magicSize; i++ {
+		if in[i] != magic[i] {
+			return false
+		}
+	}
+	return true
 }

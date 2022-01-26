@@ -214,7 +214,7 @@ func (uir *UserInputReader) Select(
 		}
 		idx, err := strconv.Atoi(str)
 		if err == nil && idx > 0 && idx <= len(options) {
-			return options[idx]
+			return options[idx-1]
 		}
 	}
 }

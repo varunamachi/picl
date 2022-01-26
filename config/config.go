@@ -321,6 +321,107 @@ func CreateConfig(name string) error {
 	return nil
 }
 
+func CreateConfigWithDefaults(name string) error {
+
+	user, err := user.Current()
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to get current user")
+	}
+
+	gtr := cmn.StdUserInputReader()
+
+	numHosts := gtr.Int("Number of Hosts")
+
+	conf := PiclConfig{
+		Name:  name,
+		Hosts: make([]*host, numHosts),
+	}
+
+	colors := []string{
+		"red",
+		"green",
+		"yellow",
+		"blue",
+		"magenta",
+		"cyan",
+		"white",
+	}
+
+	cmnUser := user.Username
+	msg := fmt.Sprintf("Common SSH Password for '%s'", cmnUser)
+	cmnPwd := gtr.Secret(msg)
+
+	conf.Monitor = monitor{
+		Height: 20,
+		Width:  60,
+		GoArch: "arm64",
+	}
+	conf.Hosts = make([]*host, numHosts)
+
+	fmt.Println()
+	for i := 0; i < numHosts; i++ {
+
+		for {
+			msg := fmt.Sprintf(
+				"Host-%d Name & Address (space separated) (q to quit)", i+1)
+			hostStr := gtr.String(msg)
+			parts := strings.Fields(hostStr)
+			if len(parts) == 2 {
+				host := &host{
+					Name: strings.TrimSpace(parts[0]),
+					Host: strings.TrimSpace(parts[1]),
+					Executer: executer{
+						SshPort:   22,
+						Color:     colors[i%(len(colors)-1)],
+						UserName:  cmnUser,
+						Password:  cmnPwd,
+						AuthMehod: xcutr.SshAuthPublicKey,
+					},
+					Agent: agent{
+						Port:     20202,
+						Protocol: "http",
+					},
+				}
+				conf.Hosts[i] = host
+				break
+			} else if cmn.EqFold(hostStr, "q") {
+				os.Exit(0)
+			}
+		}
+
+	}
+
+	pw := gtr.Secret("Password for encryption")
+	if err := generateConfig(&conf, name, true, pw); err != nil {
+		return err
+	}
+
+	provider, err := new(&conf)
+	if err != nil {
+		return err
+	}
+	copyId := gtr.BoolOr("Copy SSH Public Key to Nodes (ssh-copy-id)? ", true)
+	if copyId {
+		if err = CopySshId(provider); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func CopySshId(provider Provider) error {
+	opts := provider.ExecuterConfig().Opts
+	for _, opt := range opts {
+		opt.AuthMehod = xcutr.SshAuthPassword
+	}
+
+	if err := xcutr.CopyId(opts); err != nil {
+		return err
+	}
+	return nil
+}
+
 func generateConfig(
 	config *PiclConfig, configName string, encrypt bool, pw string) error {
 	jsonData, err := json.MarshalIndent(config, "", "    ")
