@@ -149,6 +149,15 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 	}
 	rows = append(rows, pubKey)
 
+	parent := filepath.Dir(cpr.authzKeyPath)
+	if err := cpr.fcon.MkdirAll(parent); err != nil {
+		err = cmn.Errf(err,
+			"failed to create parent directories '%s' for authorized keys file",
+			parent)
+		cpr.err(err.Error())
+		return err
+	}
+
 	file, err := cpr.fcon.Create(cpr.authzKeyPath)
 	if err != nil {
 		err = cmn.Errf(err, "failed to create/open authorized_keys to write")

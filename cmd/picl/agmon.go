@@ -67,7 +67,6 @@ func getMonitorCmd() *cli.Command {
 			}
 
 			monConfig := provider.MonitorConfig()
-			cmn.PrintJSON(monConfig)
 
 			hdl, gtx, err := newHandler(handler, monConfig)
 			if err != nil {
