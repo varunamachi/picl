@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
 
@@ -51,7 +52,7 @@ func main() {
 		},
 	}
 	if err := app.Run(os.Args); err != nil {
-		// logrus.Fatal(err)
+		log.Fatal().Err(err).Msg("")
 		os.Exit(-1)
 	}
 }

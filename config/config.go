@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/varunamachi/picl/cmn"
-	"github.com/varunamachi/picl/cmn/client"
+	"github.com/varunamachi/libx/httpx"
+	"github.com/varunamachi/libx/iox"
+	"github.com/varunamachi/libx/str"
 	"github.com/varunamachi/picl/mon"
 	"github.com/varunamachi/picl/xcutr"
 )
@@ -37,9 +38,9 @@ type executer struct {
 }
 
 type agent struct {
-	Port     int              `json:"port"`
-	Protocol string           `json:"protocol"`
-	AuthData *client.AuthData `json:"authData"`
+	Port     int             `json:"port"`
+	Protocol string          `json:"protocol"`
+	AuthData *httpx.AuthData `json:"authData"`
 }
 
 type host struct {
@@ -75,34 +76,34 @@ func NewFromCli(ctx *cli.Context) (Provider, error) {
 		cfg = "default"
 	}
 	cfgPath := filepath.Join(
-		cmn.MustGetUserHome(), ".picl", cfg+".config.json")
-	if cmn.ExistsAsFile(cfgPath) {
+		iox.MustGetUserHome(), ".picl", cfg+".config.json")
+	if iox.ExistsAsFile(cfgPath) {
 		data, err := os.ReadFile(cfgPath)
 		if err != nil {
 			err := fmt.Errorf("failed to read configuration %s: %w", cfg, err)
-			logrus.WithError(err).Error()
+			log.Error().Err(err).Msg("")
 			return nil, err
 		}
 		return New(data)
 	}
 
 	cfgPath = filepath.Join(
-		cmn.MustGetUserHome(), ".picl", cfg+".config.json.enc")
-	if cmn.ExistsAsFile(cfgPath) {
-		pw := cmn.AskPassword("Please Enter Config Password")
+		iox.MustGetUserHome(), ".picl", cfg+".config.json.enc")
+	if iox.ExistsAsFile(cfgPath) {
+		pw := iox.AskPassword("Please Enter Config Password")
 
 		data, err := os.ReadFile(cfgPath)
 		if err != nil {
 			e := fmt.Errorf("failed to read configuration %s", cfg)
-			logrus.WithError(err).Error(e.Error())
+			log.Error().Err(err).Msg(e.Error())
 			return nil, e
 		}
 
-		data, err = cmn.NewCryptor(pw).Decrypt(data)
+		data, err = iox.NewCryptor(pw).Decrypt(data)
 		if err != nil {
 			e := fmt.Errorf(
 				"failed to decrypt configuration %s", cfg)
-			logrus.WithError(err).Error(e.Error())
+			log.Error().Err(err).Msg(e.Error())
 			return nil, e
 		}
 
@@ -110,7 +111,7 @@ func NewFromCli(ctx *cli.Context) (Provider, error) {
 	}
 
 	err := fmt.Errorf("could not find configuration %s", cfg)
-	logrus.Error(err.Error())
+	log.Error().Err(err).Msg("")
 	return nil, err
 }
 
@@ -207,10 +208,10 @@ func CreateConfig(name string) error {
 
 	user, err := user.Current()
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to get current user")
+		log.Fatal().Err(err).Msg("failed to get current user")
 	}
 
-	gtr := cmn.StdUserInputReader()
+	gtr := iox.StdUserInputReader()
 
 	numHosts := gtr.Int("Number of Hosts")
 
@@ -283,7 +284,7 @@ func CreateConfig(name string) error {
 				}
 				conf.Hosts[i] = host
 				break
-			} else if cmn.EqFold(hostStr, "q") {
+			} else if str.EqFold(hostStr, "q") {
 				os.Exit(0)
 			}
 		}
@@ -325,10 +326,10 @@ func CreateConfigWithDefaults(name string) error {
 
 	user, err := user.Current()
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to get current user")
+		log.Fatal().Err(err).Msg("failed to get current user")
 	}
 
-	gtr := cmn.StdUserInputReader()
+	gtr := iox.StdUserInputReader()
 
 	numHosts := gtr.Int("Number of Hosts")
 
@@ -384,7 +385,7 @@ func CreateConfigWithDefaults(name string) error {
 				}
 				conf.Hosts[i] = host
 				break
-			} else if cmn.EqFold(hostStr, "q") {
+			} else if str.EqFold(hostStr, "q") {
 				os.Exit(0)
 			}
 		}
@@ -434,7 +435,7 @@ func generateConfig(
 		ext = ".config.json.enc"
 	}
 
-	path := filepath.Join(cmn.MustGetUserHome(), ".picl", configName+ext)
+	path := filepath.Join(iox.MustGetUserHome(), ".picl", configName+ext)
 	configFile, err := os.Create(path)
 	if err != nil {
 		return err
@@ -442,7 +443,7 @@ func generateConfig(
 	defer configFile.Close()
 
 	if encrypt {
-		jsonData, err = cmn.NewCryptor(pw).Encrypt(jsonData)
+		jsonData, err = iox.NewCryptor(pw).Encrypt(jsonData)
 		if err != nil {
 			return err
 		}

@@ -5,9 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/libx/errx"
+	"github.com/varunamachi/libx/iox"
 	"github.com/varunamachi/picl/config"
 )
 
@@ -90,23 +91,23 @@ func getEncryptCmd() *cli.Command {
 			out := ctx.String("out")
 			if out == "" {
 				out = filepath.Join(
-					cmn.MustGetUserHome(), ".picl", cfg+".config.json.enc")
+					iox.MustGetUserHome(), ".picl", cfg+".config.json.enc")
 			} else {
 				out = filepath.Join(
-					cmn.MustGetUserHome(), ".picl", out+".config.json.enc")
+					iox.MustGetUserHome(), ".picl", out+".config.json.enc")
 			}
 			cfgPath := filepath.Join(
-				cmn.MustGetUserHome(), ".picl", cfg+".config.json")
+				iox.MustGetUserHome(), ".picl", cfg+".config.json")
 
-			if !cmn.ExistsAsFile(cfgPath) {
+			if !iox.ExistsAsFile(cfgPath) {
 				err := fmt.Errorf("could not find config for '%s'", cfg)
-				logrus.Error(err.Error())
+				log.Error().Err(err).Msg("")
 				return err
 			}
 
 			var pw string
 			for {
-				pw := cmn.AskPassword("Config Encryption Password")
+				pw := iox.AskPassword("Config Encryption Password")
 				if pw != "" {
 					break
 				}
@@ -115,12 +116,12 @@ func getEncryptCmd() *cli.Command {
 			configFile, err := os.Open(cfgPath)
 			if err != nil {
 				const msg = "failed to open config file"
-				logrus.WithError(err).Error(msg)
-				return cmn.Errf(err, msg)
+				log.Error().Err(err).Msg(msg)
+				return errx.Errf(err, msg)
 			}
 			defer configFile.Close()
 
-			return cmn.NewCryptor(pw).EncryptToFile(configFile, out)
+			return iox.EncryptToFile(configFile, out, pw)
 
 		},
 	}
@@ -150,23 +151,23 @@ func getDecryptCmd() *cli.Command {
 			out := ctx.String("out")
 			if out == "" {
 				out = filepath.Join(
-					cmn.MustGetUserHome(), ".picl", cfg+".config.json")
+					iox.MustGetUserHome(), ".picl", cfg+".config.json")
 			} else {
 				out = filepath.Join(
-					cmn.MustGetUserHome(), ".picl", out+".config.json")
+					iox.MustGetUserHome(), ".picl", out+".config.json")
 			}
 			cfgPath := filepath.Join(
-				cmn.MustGetUserHome(), ".picl", cfg+".config.json.enc")
+				iox.MustGetUserHome(), ".picl", cfg+".config.json.enc")
 
-			if !cmn.ExistsAsFile(cfgPath) {
+			if !iox.ExistsAsFile(cfgPath) {
 				err := fmt.Errorf("could not find config for '%s'", cfg)
-				logrus.Error(err.Error())
+				log.Error().Err(err).Msg("")
 				return err
 			}
 
 			var pw string
 			for {
-				pw := cmn.AskPassword("Config Encryption Password")
+				pw := iox.AskPassword("Config Encryption Password")
 				if pw != "" {
 					break
 				}
@@ -175,14 +176,14 @@ func getDecryptCmd() *cli.Command {
 			outFile, err := os.Create(out)
 			if err != nil {
 				const msg = "failed create to output file"
-				logrus.WithError(err).Error(msg)
-				return cmn.Errf(err, msg)
+				log.Error().Err(err).Msg(msg)
+				return errx.Errf(err, msg)
 			}
 			defer outFile.Close()
 
-			err = cmn.NewCryptor(pw).DecryptFromFile(cfgPath, outFile)
+			err = iox.DecryptFromFile(cfgPath, pw, outFile)
 			if err != nil {
-				logrus.WithError(err).Error("failed to decrypt file")
+				log.Error().Err(err).Msg("failed to decrypt file")
 				return err
 			}
 

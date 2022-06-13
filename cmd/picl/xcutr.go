@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/picl/config"
 	"github.com/varunamachi/picl/xcutr"
 )
@@ -68,7 +68,7 @@ func getPullCmd() *cli.Command {
 			parts := strings.SplitN(remote, ":", 2)
 			fmt.Println(parts)
 			if len(parts) != 2 {
-				return cmn.Errf(errors.New("invalid remote format"),
+				return errx.Errf(errors.New("invalid remote format"),
 					"Invalud remote file provided, should be of the form: "+
 						" <nodeName>:<remotePath>")
 			}
@@ -153,7 +153,7 @@ func getReplicateCmd() *cli.Command {
 			remote := ctx.String("remote")
 			parts := strings.SplitN(remote, ":", 2)
 			if len(parts) != 2 {
-				return cmn.Errf(errors.New("invalid remote format"),
+				return errx.Errf(errors.New("invalid remote format"),
 					"Invalud remote file provided, should be of the form: "+
 						" <nodeName>:<remotePath>")
 			}
@@ -178,7 +178,7 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 	except := ctx.String("except")
 
 	if only != "" && except != "" {
-		logrus.Fatalln(
+		log.Fatal().Msg(
 			"Both 'only' and 'except' options cannot be given simultaneously")
 	}
 
@@ -210,13 +210,13 @@ func getCmdMgrAndOpts(ctx *cli.Context) (
 
 // func createCmdManager(cfg string) (*xcutr.CmdMan, error) {
 // 	cfgPath := filepath.Join(
-// 		cmn.MustGetUserHome(), ".picl", cfg+".cluster.json")
+// 		iox.MustGetUserHome(), ".picl", cfg+".cluster.json")
 // 	var config xcutr.Config
 // 	if err := cmn.LoadJsonFile(cfgPath, &config); err != nil {
-// 		logrus.
-// 			WithError(err).
-// 			WithField("config", cfg).
-// 			Error("Failed to load config")
+// 		log.Error().
+// 			Err(err).
+// 			Field("config", cfg).
+// 			Msg("Failed to load config")
 // 		return nil, err
 // 	}
 
@@ -238,27 +238,27 @@ func withCmdManFlags(flags ...cli.Flag) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "config",
 			Usage:   "Server group configuration to use",
-			EnvVars: []string{"cmn_GROUP_CONFIG"},
+			EnvVars: []string{"PICL_GROUP_CONFIG"},
 			Value:   "default",
 		},
 		&cli.StringFlag{
 			Name: "only",
 			Usage: "Comma seperated list of nodes, only on which " +
 				"the commands will be executed",
-			EnvVars: []string{"cmn_EXEC_ONLY"},
+			EnvVars: []string{"PICL_EXEC_ONLY"},
 			Value:   "",
 		},
 		&cli.StringFlag{
 			Name: "except",
 			Usage: "Comma seperated list of nodes, except which " +
 				"the commands will be executed",
-			EnvVars: []string{"cmn_EXEC_EXCEPT"},
+			EnvVars: []string{"PICL_EXEC_EXCEPT"},
 			Value:   "",
 		},
 		&cli.BoolFlag{
 			Name:    "sudo",
 			Usage:   "Runs command with sudo privilege",
-			EnvVars: []string{"cmn_EXEC_SUDO"},
+			EnvVars: []string{"PICL_EXEC_SUDO"},
 		},
 	}
 	return append(common, flags...)

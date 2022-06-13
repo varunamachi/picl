@@ -7,7 +7,7 @@ import (
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/libx/errx"
 )
 
 type TuiHandler struct {
@@ -18,7 +18,7 @@ type TuiHandler struct {
 
 func NewTuiHandler(cfg *Config) (Handler, context.Context, error) {
 	if err := ui.Init(); err != nil {
-		return nil, nil, cmn.Errf(err, "failed to initialize termui")
+		return nil, nil, errx.Errf(err, "failed to initialize termui")
 
 	}
 

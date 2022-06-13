@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/rs/zerolog/log"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/picl/xcutr"
 )
 
@@ -36,8 +36,8 @@ func Build(fxRootPath, goArch string) (string, error) {
 	cmd.Env = append(os.Environ(), "GOARCH="+goArch)
 	if err := cmd.Run(); err != nil {
 		const msg = "failed to run go build"
-		logrus.WithError(err).Error(msg)
-		return "", cmn.Errf(err, msg)
+		log.Error().Err(err).Msg(msg)
+		return "", errx.Errf(err, msg)
 	}
 
 	return output, nil
@@ -49,7 +49,7 @@ func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
 		WithSudo: true,
 	})
 	if err != nil {
-		return cmn.Errf(err, "failed to create destination directory")
+		return errx.Errf(err, "failed to create destination directory")
 	}
 
 	// err = cmdMan.Exec("killall picl", &xcutr.ExecOpts{})
@@ -61,7 +61,7 @@ func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
 		DupFilePolicy: xcutr.Replace,
 	})
 	if err != nil {
-		return cmn.Errf(err, "failed to copy agent executable")
+		return errx.Errf(err, "failed to copy agent executable")
 	}
 
 	err = cmdMan.PushData(script, "/opt/bin/run.sh", &xcutr.CopyOpts{
@@ -71,34 +71,34 @@ func InstallAgent(cmdMan *xcutr.CmdMan, exePath string) error {
 		DupFilePolicy: xcutr.Replace,
 	})
 	if err != nil {
-		return cmn.Errf(err, "failed to copy run script")
+		return errx.Errf(err, "failed to copy run script")
 	}
 
 	err = cmdMan.Exec("chmod -R 755 /opt/bin/*", &xcutr.ExecOpts{
 		WithSudo: true,
 	})
 	if err != nil {
-		return cmn.Errf(err, "failed to agent executable permission")
+		return errx.Errf(err, "failed to agent executable permission")
 	}
 
 	err = cmdMan.Exec("/opt/bin/run.sh", &xcutr.ExecOpts{
 		WithSudo: true,
 	})
 	if err != nil {
-		return cmn.Errf(err, "failed to start agent")
+		return errx.Errf(err, "failed to start agent")
 	}
 
 	return nil
 }
 
 func BuildAndInstall(cmdMan *xcutr.CmdMan, fxRootPath, goArch string) error {
-	logrus.Info("Building the executable for arch ", goArch)
+	log.Info().Str("goArch", goArch).Msg("Building the executable")
 	output, err := Build(fxRootPath, goArch)
 	if err != nil {
 		return err
 	}
 
-	logrus.Info("Deploying executable")
+	log.Info().Msg("Deploying executable")
 	if err := InstallAgent(cmdMan, output); err != nil {
 		return err
 	}

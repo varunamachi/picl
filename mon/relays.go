@@ -8,7 +8,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stianeikeland/go-rpio/v4"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/libx/errx"
+	"github.com/varunamachi/libx/httpx"
 )
 
 var (
@@ -58,12 +59,12 @@ func NewRelayController(cfg *RelayConfig) (*RelayController, error) {
 
 func (rc *RelayController) SetState(slot int, state bool) error {
 	if !rc.inited {
-		return cmn.Errf(ErrRelayCtlUninitialized,
+		return errx.Errf(ErrRelayCtlUninitialized,
 			"relay controller has not been initialized")
 	}
 
 	if slot < 0 || slot >= len(rc.pins) {
-		return cmn.Errf(ErrRelayIndexExceeded,
+		return errx.Errf(ErrRelayIndexExceeded,
 			"index is less than 0 or than number of relays (%d) ", len(rc.pins))
 	}
 	rc.pins[slot].Output()
@@ -75,7 +76,7 @@ func (rc *RelayController) SetState(slot int, state bool) error {
 
 func (rc *RelayController) RefreshStates() ([]bool, error) {
 	if !rc.inited {
-		return nil, cmn.Errf(ErrRelayCtlUninitialized,
+		return nil, errx.Errf(ErrRelayCtlUninitialized,
 			"relay controller has not been initialized")
 	}
 
@@ -87,12 +88,12 @@ func (rc *RelayController) RefreshStates() ([]bool, error) {
 
 func (rc *RelayController) GetState(slot int) (bool, error) {
 	if !rc.inited {
-		return false, cmn.Errf(ErrRelayCtlUninitialized,
+		return false, errx.Errf(ErrRelayCtlUninitialized,
 			"relay controller has not been initialized")
 	}
 
 	if slot < 0 || slot >= len(rc.pins) {
-		return false, cmn.Errf(ErrRelayIndexExceeded,
+		return false, errx.Errf(ErrRelayIndexExceeded,
 			"index is less than 0 or than number of relays (%d) ", len(rc.pins))
 	}
 	return rc.cachedState[slot], nil
@@ -100,7 +101,7 @@ func (rc *RelayController) GetState(slot int) (bool, error) {
 
 func (rc *RelayController) GetStates() ([]bool, error) {
 	if !rc.inited {
-		return nil, cmn.Errf(ErrRelayCtlUninitialized,
+		return nil, errx.Errf(ErrRelayCtlUninitialized,
 			"relay controller has not been initialized")
 	}
 	return rc.cachedState, nil
@@ -132,15 +133,14 @@ func (rc *RelayController) fromState(state rpio.State) bool {
 	}
 }
 
-func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
-	return []*cmn.Endpoint{
+func getRelayEndpoints(rc *RelayController) []*httpx.Endpoint {
+	return []*httpx.Endpoint{
 		{
-			Method:    echo.POST,
-			Path:      "/switch/:slot/:state",
-			Category:  "switch",
-			Desc:      "Turn the switch/relay on/off",
-			Version:   "v1",
-			NeedsAuth: false,
+			Method:   echo.POST,
+			Path:     "/switch/:slot/:state",
+			Category: "switch",
+			Desc:     "Turn the switch/relay on/off",
+			Version:  "v1",
 			Handler: func(etx echo.Context) error {
 				if rc == nil {
 					return &echo.HTTPError{
@@ -182,12 +182,11 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			},
 		},
 		{
-			Method:    echo.POST,
-			Path:      "/switch/all/:state",
-			Category:  "switch",
-			Desc:      "Turn all relays on or off",
-			Version:   "v1",
-			NeedsAuth: false,
+			Method:   echo.POST,
+			Path:     "/switch/all/:state",
+			Category: "switch",
+			Desc:     "Turn all relays on or off",
+			Version:  "v1",
 			Handler: func(etx echo.Context) error {
 				if rc == nil {
 					return &echo.HTTPError{
@@ -221,12 +220,11 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			},
 		},
 		{
-			Method:    echo.GET,
-			Path:      "/switch/:slot",
-			Category:  "switch",
-			Desc:      "Get stored state of the switch at a slot ",
-			Version:   "v1",
-			NeedsAuth: false,
+			Method:   echo.GET,
+			Path:     "/switch/:slot",
+			Category: "switch",
+			Desc:     "Get stored state of the switch at a slot ",
+			Version:  "v1",
 			Handler: func(etx echo.Context) error {
 				if rc == nil {
 					return &echo.HTTPError{
@@ -258,12 +256,11 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			},
 		},
 		{
-			Method:    echo.GET,
-			Path:      "/switch",
-			Category:  "switch",
-			Desc:      "Get stored state of all switches",
-			Version:   "v1",
-			NeedsAuth: false,
+			Method:   echo.GET,
+			Path:     "/switch",
+			Category: "switch",
+			Desc:     "Get stored state of all switches",
+			Version:  "v1",
 			Handler: func(etx echo.Context) error {
 				if rc == nil {
 					return &echo.HTTPError{
@@ -284,12 +281,11 @@ func getRelayEndpoints(rc *RelayController) []*cmn.Endpoint {
 			},
 		},
 		{
-			Method:    echo.GET,
-			Path:      "/switch/count",
-			Category:  "switch",
-			Desc:      "Get number of switches",
-			Version:   "v1",
-			NeedsAuth: false,
+			Method:   echo.GET,
+			Path:     "/switch/count",
+			Category: "switch",
+			Desc:     "Get number of switches",
+			Version:  "v1",
 			Handler: func(etx echo.Context) error {
 				if rc == nil {
 					return &echo.HTTPError{

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v3/host"
-	"github.com/sirupsen/logrus"
 )
 
 func RunAgent(address string) error {
@@ -31,7 +31,7 @@ func handleSysInfo(etx echo.Context) error {
 func hostInfo(etx echo.Context) error {
 	h, err := host.Info()
 	if err != nil {
-		logrus.WithError(err).Error("failed to get host inforamtion")
+		log.Error().Err(err).Msg("failed to get host inforamtion")
 		return &echo.HTTPError{
 			Code:     http.StatusInternalServerError,
 			Message:  "failed to get host information",

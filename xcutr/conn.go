@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"os/user"
@@ -12,8 +11,9 @@ import (
 	"strings"
 
 	fc "github.com/fatih/color"
-	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/rs/zerolog/log"
+	"github.com/varunamachi/libx/errx"
+	"github.com/varunamachi/libx/iox"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
@@ -50,7 +50,7 @@ func (opts *SshConnOpts) FillDefaults() {
 	}
 	if opts.UserName == "" {
 		if user, err := user.Current(); err != nil {
-			logrus.WithError(err).Error("Failed to get current user")
+			log.Error().Err(err).Msg("Failed to get current user")
 		} else {
 			opts.UserName = user.Username
 		}
@@ -81,8 +81,8 @@ func NewConn(opts *SshConnOpts) (*SshConn, error) {
 	client, err := ssh.Dial("tcp", address, config)
 	if err != nil {
 		const msg = "failed to connect to remote host"
-		logrus.WithError(err).WithField("opts", opts.String()).Error(msg)
-		return nil, NewErrf(err, msg)
+		log.Fatal().Err(err).Str("opts", opts.String()).Msg(msg)
+		return nil, errx.Errf(err, msg)
 	}
 	// defer client.Close()
 
@@ -123,9 +123,9 @@ func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 	sess.Stderr = NewNodeWriter(conn.Name(), stdIO.Err, color(conn.opts.Color))
 	sess.Stdin = stdIO.In
 	if err := sess.Run(cmd); err != nil {
-		// logrus.WithError(err).WithField("cmd", cmd).
+		// log.Fatal().Err(err).WithField("cmd", cmd).
 		// 	Error("Command execution failed")
-		return NewErrf(err, "Command %s failed to execute", cmd)
+		return errx.Errf(err, "Command %s failed to execute", cmd)
 	}
 	return nil
 }
@@ -151,9 +151,9 @@ func (conn *SshConn) ExecSudo(cmd string, stdIO *StdIO) error {
 	sess.Stdin = strings.NewReader(conn.opts.Password)
 
 	if err := sess.Run(cmd); err != nil {
-		// logrus.WithError(err).WithField("cmd", cmd).
+		// log.Fatal().Err(err).WithField("cmd", cmd).
 		// 	Error("Command execution failed")
-		return NewErrf(err, "Command %s failed to execute", cmd)
+		return errx.Errf(err, "Command %s failed to execute", cmd)
 	}
 	return nil
 }
@@ -162,8 +162,8 @@ func (conn *SshConn) createSession() (*ssh.Session, error) {
 	session, err := conn.client.NewSession()
 	if err != nil {
 		const msg = "failed to create SSH session"
-		logrus.WithError(err).WithField("opts", conn.opts.String()).Error(msg)
-		return nil, NewErrf(err, msg)
+		log.Fatal().Err(err).Str("opts", conn.opts.String()).Msg(msg)
+		return nil, errx.Errf(err, msg)
 	}
 	return session, nil
 }
@@ -172,8 +172,8 @@ func closeSession(sess *ssh.Session) error {
 	err := sess.Close()
 	if err != nil && err != io.EOF {
 		const msg = "Failed to close ssh session"
-		logrus.WithError(err).Error(msg)
-		return NewErrf(err, msg)
+		log.Error().Err(err).Msg(msg)
+		return errx.Errf(err, msg)
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatal().Err(err)
 	}
 
 	key, err := GetPrivateKeyFileContent(opts)
@@ -194,16 +194,16 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
 		const msg = "unable read the private key"
-		logrus.WithError(err).Error(msg)
-		return nil, NewErrf(err, msg)
+		log.Error().Err(err).Msg(msg)
+		return nil, errx.Errf(err, msg)
 	}
 
 	khFile := filepath.Join(home, ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(khFile)
 	if err != nil {
 		const msg = "could not create hostkeycallback function"
-		logrus.WithError(err).WithField("path", khFile).Error(msg)
-		return nil, NewErrf(err, msg)
+		log.Fatal().Err(err).Str("path", khFile).Msg(msg)
+		return nil, errx.Errf(err, msg)
 	}
 
 	return &ssh.ClientConfig{
@@ -217,13 +217,13 @@ func getPrivateKeyConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
 }
 
 func getPasswordConfig(opts *SshConnOpts) (*ssh.ClientConfig, error) {
-	home := cmn.MustGetUserHome()
+	home := iox.MustGetUserHome()
 	khFile := filepath.Join(home, ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(khFile)
 	if err != nil {
 		const msg = "could not create hostkeycallback function"
-		logrus.WithError(err).WithField("path", khFile).Error(msg)
-		return nil, NewErrf(err, msg)
+		log.Fatal().Err(err).Str("path", khFile).Msg(msg)
+		return nil, errx.Errf(err, msg)
 	}
 
 	return &ssh.ClientConfig{
@@ -291,11 +291,11 @@ func GetPrivateKeyFileContent(opts *SshConnOpts) ([]byte, error) {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatal().Err(err).Msg("")
 	}
 
 	pkFile := filepath.Join(home, ".ssh", "id_rsa")
-	if !cmn.ExistsAsFile(pkFile) {
+	if !iox.ExistsAsFile(pkFile) {
 		pkFile = filepath.Join(home, ".ssh", "id_ed25519")
 	}
 
@@ -305,8 +305,8 @@ func GetPrivateKeyFileContent(opts *SshConnOpts) ([]byte, error) {
 	key, err := ioutil.ReadFile(pkFile)
 	if err != nil {
 		const msg = "Unable read the private key"
-		logrus.WithError(err).Error()
-		return nil, NewErrf(err, msg)
+		log.Error().Err(err).Msg("")
+		return nil, errx.Errf(err, msg)
 	}
 
 	return key, nil
@@ -316,19 +316,19 @@ func GetPublicKeyFileContent() (string, error) {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatal().Err(err).Msg("")
 	}
 
 	pkFile := filepath.Join(home, ".ssh", "id_rsa.pub")
-	if !cmn.ExistsAsFile(pkFile) {
+	if !iox.ExistsAsFile(pkFile) {
 		pkFile = filepath.Join(home, ".ssh", "id_ed25519.pub")
 	}
 
 	key, err := ioutil.ReadFile(pkFile)
 	if err != nil {
 		const msg = "Unable read the public key"
-		logrus.WithError(err).Error()
-		return "", NewErrf(err, msg)
+		log.Error().Err(err).Msg("")
+		return "", errx.Errf(err, msg)
 	}
 
 	return string(key), nil

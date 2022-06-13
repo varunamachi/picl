@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
-	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/rs/zerolog/log"
+	"github.com/varunamachi/libx/errx"
 )
 
 var (
@@ -56,7 +56,7 @@ func CopyId(sshCfg []*SshConnOpts) error {
 		msg := fmt.Sprintf(
 			"could not copy id to all nodes (%d out of %d failed)",
 			failures, len(sshCfg))
-		logrus.Error(msg)
+		log.Error().Msg(msg)
 		return errors.New(msg)
 	}
 
@@ -78,7 +78,7 @@ func newCopier(opts *SshConnOpts) (*idMan, error) {
 
 	sftpClient, err := sftp.NewClient(conn.client)
 	if err != nil {
-		return nil, cmn.Errf(err, "failed to create sftp client")
+		return nil, errx.Errf(err, "failed to create sftp client")
 	}
 
 	return &idMan{
@@ -119,7 +119,7 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 		cmd := fmt.Sprintf("cp %s %s", cpr.authzKeyPath, backupFilePath)
 		if err = cpr.conn.Exec(cmd, nil); err != nil {
 			cpr.err("failed to back up authorized_keys file: %s", err.Error())
-			return cmn.Errf(err, "failed to back up authorized_keys file")
+			return errx.Errf(err, "failed to back up authorized_keys file")
 		}
 	}
 
@@ -151,7 +151,7 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 
 	parent := filepath.Dir(cpr.authzKeyPath)
 	if err := cpr.fcon.MkdirAll(parent); err != nil {
-		err = cmn.Errf(err,
+		err = errx.Errf(err,
 			"failed to create parent directories '%s' for authorized keys file",
 			parent)
 		cpr.err(err.Error())
@@ -160,7 +160,7 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 
 	file, err := cpr.fcon.Create(cpr.authzKeyPath)
 	if err != nil {
-		err = cmn.Errf(err, "failed to create/open authorized_keys to write")
+		err = errx.Errf(err, "failed to create/open authorized_keys to write")
 		cpr.err(err.Error())
 		return err
 	}
@@ -171,7 +171,7 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 	}()
 
 	if err = cpr.writeAuthorizedKeys(file, rows); err != nil {
-		err = cmn.Errf(err, "failed to update authorized_keys file")
+		err = errx.Errf(err, "failed to update authorized_keys file")
 		cpr.err(err.Error())
 		return err
 	}
@@ -231,7 +231,7 @@ func (cpr *idMan) writeAuthorizedKeys(
 			"%s %s %s %s",
 			key.Options, key.KeyType, key.Key, key.Comment)
 		if err != nil {
-			return cmn.Errf(
+			return errx.Errf(
 				err, "failed to write a row into authorized_keys file")
 		}
 	}

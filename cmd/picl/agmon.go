@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/varunamachi/libx/httpx"
 	"github.com/varunamachi/picl/config"
 	"github.com/varunamachi/picl/mon"
 	"github.com/varunamachi/picl/xcutr"
@@ -87,14 +87,14 @@ func getMonitorCmd() *cli.Command {
 				monConfig,
 				rcfg,
 				hdl,
-				cmn.NewServer(printer))
+				httpx.NewServer(printer, nil))
 
 			if err != nil {
-				logrus.WithError(err).Error("failed to initialize monitor")
+				log.Error().Err(err).Msg("failed to initialize monitor")
 				return err
 			}
 			if err = monitor.Run(gtx, uint32(port)); err != nil {
-				logrus.WithError(err).Error("failed to run monitor")
+				log.Error().Err(err).Msg("failed to run monitor")
 				return err
 			}
 
@@ -122,13 +122,13 @@ func getBuildInstallCmd() *cli.Command {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		const msg = "Couldnt get main file path"
-		logrus.Fatal(msg)
+		log.Fatal().Msg(msg)
 	}
 
 	fxRootPath, err := filepath.Abs(filename + "/../../..")
 	if err != nil {
 		const msg = "couldnt get main file path"
-		logrus.WithError(err).Error(msg)
+		log.Error().Err(err).Msg(msg)
 	}
 
 	return &cli.Command{

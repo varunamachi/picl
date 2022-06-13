@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/picl/cmn"
-	"github.com/varunamachi/picl/cmn/client"
+	"github.com/rs/zerolog/log"
+	"github.com/varunamachi/libx/errx"
+	"github.com/varunamachi/libx/httpx"
 	"golang.org/x/sync/errgroup"
 )
 
 type AgentConfig struct {
-	Name     string           `json:"name"`
-	Address  string           `json:"address"`
-	AuthData *client.AuthData `json:"authData"`
+	Name     string          `json:"name"`
+	Address  string          `json:"address"`
+	AuthData *httpx.AuthData `json:"authData"`
 }
 
 type Config struct {
@@ -33,7 +33,7 @@ func (cfg *Config) PrintSampleJSON() {
 
 	j, err := json.MarshalIndent(cfg, "", "    ")
 	if err != nil {
-		logrus.WithError(err).Error("Failed to marshal MonitorConfig to JSON")
+		log.Error().Err(err).Msg("Failed to marshal MonitorConfig to JSON")
 		return
 	}
 	fmt.Println(string(j))
@@ -52,10 +52,10 @@ type AgentResponse struct {
 
 type Monitor struct {
 	config   *Config
-	clients  []*client.Client
+	clients  []*httpx.Client
 	handler  Handler
 	relayCtl *RelayController
-	server   *cmn.Server
+	server   *httpx.Server
 }
 
 func NewMonitor(
@@ -63,23 +63,29 @@ func NewMonitor(
 	config *Config,
 	realyConfig *RelayConfig,
 	hdl Handler,
-	server *cmn.Server) (*Monitor, error) {
+	server *httpx.Server) (*Monitor, error) {
 	mon := &Monitor{
 		config:  config,
-		clients: make([]*client.Client, 0, len(config.AgentConfig)),
+		clients: make([]*httpx.Client, 0, len(config.AgentConfig)),
 		handler: hdl,
 		server:  server,
 	}
 
 	for _, conf := range config.AgentConfig {
-		client := client.NewCustom(
-			conf.Address, "/api/v0", client.DefaultTransport(),
+		client := httpx.NewCustom(
+			conf.Address, "/api/v0", httpx.DefaultTransport(),
 			100*time.Millisecond)
 		if conf.AuthData != nil {
-			if err := client.Login(gtx, conf.AuthData); err != nil {
+
+			// TODO - have a proper user struct and login config
+			lc := httpx.LoginConfig{
+				LoginURL: "login",
+				UserOut:  nil,
+			}
+			if err := client.Login(gtx, &lc, *conf.AuthData); err != nil {
 				msg := "failed to login to agent"
-				logrus.WithError(err).Error(msg, conf.Name)
-				return nil, cmn.Errf(err, msg, conf.Name)
+				log.Error().Err(err).Str("conf", conf.Name).Msg(msg)
+				return nil, errx.Errf(err, msg, conf.Name)
 			}
 		}
 		mon.clients = append(mon.clients, client)
@@ -87,7 +93,7 @@ func NewMonitor(
 	var err error
 	mon.relayCtl, err = NewRelayController(realyConfig)
 	if err != nil {
-		logrus.WithError(err).Warn("failed to initialize GPIO, " +
+		log.Fatal().Err(err).Msg("failed to initialize GPIO, " +
 			"disabling related features...")
 		// return nil, err
 	}

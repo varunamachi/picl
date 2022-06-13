@@ -11,8 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
-	"github.com/sirupsen/logrus"
-	"github.com/varunamachi/picl/cmn"
+	"github.com/rs/zerolog/log"
+	"github.com/varunamachi/libx/errx"
+	"github.com/varunamachi/libx/iox"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -65,7 +66,7 @@ func NewCmdMan(config *Config, stdIO StdIO) (*CmdMan, error) {
 	for _, opts := range config.Opts {
 		conn, err := NewConn(opts)
 		if err != nil {
-			logrus.Warn("Failed to connect to ", opts.Host)
+			log.Warn().Str("host", opts.Host).Msg("Failed to connect to ")
 			continue
 		}
 		conns = append(conns, conn)
@@ -113,7 +114,7 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 	failed := 0
 	conns := cm.connList(opts)
 	if len(conns) == 0 {
-		logrus.Warn("Could find any node that satisfies current config")
+		log.Warn().Msg("Could find any node that satisfies current config")
 		return nil
 	}
 
@@ -143,7 +144,7 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 
 	wg.Wait()
 	if failed != 0 {
-		return NewErrf(ErrCmdExec,
+		return errx.Errf(ErrCmdExec,
 			"failed to execute command on %d targets", failed)
 	}
 	return nil
@@ -152,45 +153,43 @@ func (cm *CmdMan) Exec(cmd string, opts *ExecOpts) error {
 func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 	conn := cm.connMap[node]
 	if conn == nil {
-		logrus.WithField("nodeName", node).Error("invalid node name given")
-		return NewErrf(ErrInvalidNode, "invalid node name given: %s", node)
+		log.Error().Str("nodeName", node).Msg("invalid node name given")
+		return errx.Errf(ErrInvalidNode, "invalid node name given: %s", node)
 	}
 
 	sftpClient, err := sftp.NewClient(conn.client)
 	if err != nil {
 		const msg = "failed to create SFTP client"
-		logrus.WithError(err).WithField("nodeName", node).Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).Str("nodeName", node).Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	remote, err := sftpClient.Open(remotePath)
 	if err != nil {
 		const msg = "Failed to read remote file"
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"nodeName":   node,
-			"remotePath": remotePath,
-		}).Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).
+			Str("nodeName", node).
+			Str("remotePath", remotePath).
+			Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	local, err := os.Create(localPath)
 	if err != nil {
 		const msg = "Failed to create local file"
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"localPath": remotePath,
-		}).Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).Str("localPath", remotePath).Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	_, err = io.Copy(local, remote)
 	if err != nil {
 		const msg = "Failed to copy remote file to local"
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"nodeName":   node,
-			"remotePath": remotePath,
-			"localPath":  remotePath,
-		}).Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).
+			Str("nodeName", node).
+			Str("remotePath", remotePath).
+			Str("localPath", remotePath).
+			Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	return nil
@@ -198,32 +197,26 @@ func (cm *CmdMan) Pull(node, remotePath, localPath string) error {
 
 func (cm *CmdMan) Push(localPath, remoteDest string, opts *CopyOpts) error {
 
-	if !cmn.ExistsAsFile(localPath) {
+	if !iox.ExistsAsFile(localPath) {
 		const msg = "Push: source file does not exist"
-		logrus.WithFields(logrus.Fields{
-			"localPath": localPath,
-		}).Error(msg)
-		return NewErrf(ErrFileNotFound, msg)
+		log.Error().Str("localPath", localPath).Msg(msg)
+		return errx.Errf(ErrFileNotFound, msg)
 	}
 
 	// local, err := os.Open(localPath)
 	// if err != nil {
-	// 	logrus.WithError(err).
-	// 		WithFields(logrus.Fields{
-	// 			"localPath": localPath,
-	// 		}).
-	// 		Error("Failed to open source file")
+	// 	log.Fatal().Err(err).
+	// 		Str("localPath", localPath).
+	// 		Msg("Failed to open source file")
 	// }
 	// defer local.Close()
 
 	data, err := os.ReadFile(localPath)
 	if err != nil {
-		logrus.WithError(err).
-			WithFields(logrus.Fields{
-				"localPath": localPath,
-			}).
-			Error("Failed to open source file")
-		return cmn.Errf(err, "failed to open file to push")
+		log.Fatal().Err(err).
+			Str("localPath", localPath).
+			Msg("Failed to open source file")
+		return errx.Errf(err, "failed to open file to push")
 	}
 
 	return cm.PushData(data, remoteDest, opts)
@@ -239,7 +232,7 @@ func (cm *CmdMan) PushData(
 
 	conns := cm.connList(&opts.ExecOpts)
 	if len(conns) == 0 {
-		logrus.Warn("Could find any node that satisfies current config")
+		log.Warn().Msg("Could find any node that satisfies current config")
 		return nil
 	}
 
@@ -255,10 +248,8 @@ func (cm *CmdMan) PushData(
 			// defer wg.Done()
 			// local, err := os.Open(localPath)
 			// if err != nil {
-			// 	logrus.WithError(err).
-			// 		WithFields(logrus.Fields{
-			// 			"localPath": localPath,
-			// 		}).
+			// 	log.Fatal().Err(err).
+			// 		Str("localPath", localPath).
 			// 		Error("Failed to open source file")
 			// }
 			// defer local.Close()
@@ -272,13 +263,13 @@ func (cm *CmdMan) PushData(
 			if opts.WithSudo {
 				cmd := fmt.Sprintf("mv %s %s", remotePath, remoteDest)
 				if err := conn.ExecSudo(cmd, &cm.io); err != nil {
-					return cmn.Errf(err,
+					return errx.Errf(err,
 						"with sudo: failed to move temp file to destination")
 				}
 
 				cmd = fmt.Sprintf("rm -f %s", remotePath)
 				if err := conn.Exec(cmd, &cm.io); err != nil {
-					return cmn.Errf(err,
+					return errx.Errf(err,
 						"failed to remove temp file")
 				}
 			}
@@ -299,33 +290,31 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 
 	conn := cm.connMap[node]
 	if conn == nil {
-		logrus.WithField("nodeName", node).
-			Error("Invalid source node name given")
-		return NewErrf(ErrInvalidNode,
+		log.Error().Str("nodeName", node).
+			Msg("Invalid source node name given")
+		return errx.Errf(ErrInvalidNode,
 			"Invalid source node name given: %s", node)
 	}
 
 	client, err := sftp.NewClient(conn.client)
 	if err != nil {
 		const msg = "Failed to create SFTP client"
-		logrus.WithField("nodeName", node).Error(msg)
-		return NewErrf(ErrInvalidNode, msg)
+		log.Error().Str("nodeName", node).Msg(msg)
+		return errx.Errf(ErrInvalidNode, msg)
 	}
 
 	if !remoteExists(client, remoteDest) {
 		const msg = "Remote source file does not exist"
-		logrus.WithError(err).
-			WithFields(logrus.Fields{
-				"node":       conn.Name(),
-				"remotePath": remoteDest,
-			}).
-			Error(msg)
-		return NewErrf(ErrInvalidNode, msg)
+		log.Fatal().Err(err).
+			Str("node", conn.Name()).
+			Str("remotePath", remoteDest).
+			Msg(msg)
+		return errx.Errf(ErrInvalidNode, msg)
 	}
 
 	conns := cm.connList(&opts.ExecOpts)
 	if len(conns) == 0 || (len(conns) == 1 && conns[0].Name() == node) {
-		logrus.Warn("Could find any node that satisfies current config")
+		log.Warn().Msg("Could find any node that satisfies current config")
 		return nil
 	}
 
@@ -350,12 +339,10 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 
 			source, err := client.Open(remoteDest)
 			if err != nil {
-				logrus.WithError(err).
-					WithFields(logrus.Fields{
-						"node":       conn.Name(),
-						"remotePath": remoteDest,
-					}).
-					Error("Failed to open remote source file")
+				log.Fatal().Err(err).
+					Str("node", conn.Name()).
+					Str("remotePath", remoteDest).
+					Msg("Failed to open remote source file")
 			}
 			defer source.Close()
 
@@ -392,8 +379,8 @@ func (cm *CmdMan) Replicate(node, remoteDest string, opts *CopyOpts) error {
 
 	wg.Wait()
 	if failed != 0 {
-		logrus.WithField("failedCount", failed).Error("Finished with errors")
-		return NewErrf(ErrCmdExec,
+		log.Error().Int("failedCount", failed).Msg("Finished with errors")
+		return errx.Errf(ErrCmdExec,
 			"Failed to perform replication on %d targets", failed)
 	}
 
@@ -404,7 +391,7 @@ func (cm *CmdMan) Remove(remotePath string, opts *ExecOpts) error {
 
 	conns := cm.connList(opts)
 	if len(conns) == 0 {
-		logrus.Warn("Could find any node that satisfies current config")
+		log.Warn().Msg("Could find any node that satisfies current config")
 		return nil
 	}
 
@@ -417,21 +404,19 @@ func (cm *CmdMan) Remove(remotePath string, opts *ExecOpts) error {
 			defer wg.Done()
 			client, err := sftp.NewClient(conn.client)
 			if err != nil {
-				logrus.WithError(err).
-					WithField("node", conn.Name()).
-					Error("failed to create SFTP client")
+				log.Fatal().Err(err).
+					Str("node", conn.Name()).
+					Msg("failed to create SFTP client")
 				failed++
 			}
 
 			if remoteExists(client, remotePath) {
 				if err = client.Remove(remotePath); err != nil {
 					const msg = "failed to remove remote file"
-					logrus.WithError(err).
-						WithFields(logrus.Fields{
-							"node":       conn.Name(),
-							"remotePath": remotePath,
-						}).
-						Error(msg)
+					log.Fatal().Err(err).
+						Str("node", conn.Name()).
+						Str("remotePath", remotePath).
+						Msg(msg)
 					failed++
 					return
 				}
@@ -441,7 +426,7 @@ func (cm *CmdMan) Remove(remotePath string, opts *ExecOpts) error {
 
 	wg.Wait()
 	if failed != 0 {
-		return NewErrf(ErrCmdExec,
+		return errx.Errf(ErrCmdExec,
 			"failed to execute remove command on %d targets", failed)
 	}
 	return nil
@@ -460,10 +445,10 @@ func copy(
 	client, err := sftp.NewClient(conn.client)
 	if err != nil {
 		const msg = "Failed to create SFTP client"
-		logrus.WithError(err).
-			WithField("node", conn.Name()).
-			Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).
+			Str("node", conn.Name()).
+			Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	if remoteExists(client, remotePath) {
@@ -473,13 +458,11 @@ func copy(
 		if dupPolicy == Replace {
 			if err = client.Remove(remotePath); err != nil {
 				const msg = "Failed to remove remote file"
-				logrus.WithError(err).
-					WithFields(logrus.Fields{
-						"node":       conn.Name(),
-						"remotePath": remotePath,
-					}).
-					Error(msg)
-				return NewErrf(err, msg)
+				log.Fatal().Err(err).
+					Str("node", conn.Name()).
+					Str("remotePath", remotePath).
+					Msg(msg)
+				return errx.Errf(err, msg)
 			}
 		}
 	}
@@ -487,37 +470,31 @@ func copy(
 	parent := filepath.Dir(remotePath)
 	if err = client.MkdirAll(parent); err != nil {
 		const msg = "Failed to create remote directory structure"
-		logrus.WithError(err).
-			WithFields(logrus.Fields{
-				"node":          conn.Name(),
-				"remoteDirPath": parent,
-			}).
-			Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).
+			Str("node", conn.Name()).
+			Str("remoteDirPath", parent).
+			Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	remote, err := client.Create(remotePath)
 	if err != nil {
 		const msg = "Failed to create remote file"
-		logrus.WithError(err).
-			WithFields(logrus.Fields{
-				"node":       conn.Name(),
-				"remotePath": remotePath,
-			}).
-			Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).
+			Str("node", conn.Name()).
+			Str("remotePath", remotePath).
+			Msg(msg)
+		return errx.Errf(err, msg)
 	}
 	defer remote.Close()
 
 	if _, err = io.Copy(remote, source); err != nil {
 		const msg = "Failed to copy content to remote file"
-		logrus.WithError(err).
-			WithFields(logrus.Fields{
-				"node":       conn.Name(),
-				"remotePath": remotePath,
-			}).
-			Error(msg)
-		return NewErrf(err, msg)
+		log.Fatal().Err(err).
+			Str("node", conn.Name()).
+			Str("remotePath", remotePath).
+			Msg(msg)
+		return errx.Errf(err, msg)
 	}
 
 	return nil
