@@ -22,7 +22,11 @@ require (
 	github.com/varunamachi/libx v0.0.0-20220612163736-3cc4723556de
 )
 
-require github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+require (
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/hashicorp/mdns v1.0.5 // indirect
+	github.com/miekg/dns v1.1.41 // indirect
+)
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
