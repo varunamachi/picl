@@ -1,6 +1,10 @@
 package qctl
 
-import "github.com/urfave/cli/v2"
+import (
+	"fmt"
+
+	"github.com/urfave/cli/v2"
+)
 
 func Command() *cli.Command {
 	return &cli.Command{
@@ -51,6 +55,20 @@ func listControllersCmd() *cli.Command {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
+			service := ctx.String("service-name")
+			ctls, err := discover(service)
+			if err != nil {
+				return err
+			}
+			for _, ctl := range ctls {
+				fmt.Printf("%20s %30s %4d %20v",
+					ctl.ShortName,
+					ctl.Name,
+					ctl.Port,
+					ctl.AddrIP4,
+				)
+
+			}
 			return nil
 		},
 	}
