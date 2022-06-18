@@ -24,24 +24,6 @@ func Command() *cli.Command {
 
 }
 
-func getStatesCmd() *cli.Command {
-	return &cli.Command{
-		Name:        "get-state",
-		Description: "Get state of one/all switches",
-		Usage:       "Get state of one/all switches",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "controller",
-				Usage:    "Controller to select",
-				Required: true,
-			},
-		},
-		Action: func(ctx *cli.Context) error {
-			return nil
-		},
-	}
-}
-
 func listControllersCmd() *cli.Command {
 	return &cli.Command{
 		Name:        "list",
@@ -60,8 +42,8 @@ func listControllersCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			for _, ctl := range ctls {
-				fmt.Printf("%20s %30s %4d %20v",
+			for ctl := range ctls {
+				fmt.Printf("%20s %40s %4d %20v\n",
 					ctl.ShortName,
 					ctl.Name,
 					ctl.Port,
@@ -69,6 +51,32 @@ func listControllersCmd() *cli.Command {
 				)
 
 			}
+			return nil
+		},
+	}
+}
+
+func getStatesCmd() *cli.Command {
+	return &cli.Command{
+		Name:        "get-state",
+		Description: "Get state of one/all switches",
+		Usage:       "Get state of one/all switches",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "controller",
+				Usage:    "Controller to select",
+				Required: true,
+			},
+		},
+		Action: func(ctx *cli.Context) error {
+			ch, err := getClientTo("_relayctl", "boxer")
+			if err != nil {
+				return err
+			}
+
+			cwrap := <-ch
+			h, _ := cwrap.client.RemoteHost()
+			fmt.Println(h, cwrap.ctlr.ShortName)
 			return nil
 		},
 	}
