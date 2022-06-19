@@ -228,7 +228,7 @@ func (cpr *idMan) writeAuthorizedKeys(
 	for _, key := range keys {
 		_, err := fmt.Fprintf(
 			writer,
-			"%s %s %s %s",
+			"%s %s %s %s\n",
 			key.Options, key.KeyType, key.Key, key.Comment)
 		if err != nil {
 			return errx.Errf(

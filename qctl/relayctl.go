@@ -75,7 +75,7 @@ type ctlClientWrapper struct {
 }
 
 func getClientTo(service, inShortName string) (<-chan ctlClientWrapper, error) {
-	outChan := make(chan ctlClientWrapper, 1)
+	outChan := make(chan ctlClientWrapper)
 	entriesCh := make(chan *mdns.ServiceEntry, 4)
 	go func() {
 		defer close(outChan)
@@ -102,7 +102,9 @@ func getClientTo(service, inShortName string) (<-chan ctlClientWrapper, error) {
 					return
 				}
 			}
-			outChan <- ctlClientWrapper{nil, nil, errors.New("no node found")}
+		}
+		outChan <- ctlClientWrapper{
+			nil, nil, errors.New("controller not found"),
 		}
 	}()
 

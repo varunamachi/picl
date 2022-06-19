@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/libx/httpx"
 	"github.com/varunamachi/libx/iox"
 	"github.com/varunamachi/libx/str"
@@ -434,11 +435,15 @@ func generateConfig(
 	if encrypt {
 		ext = ".config.json.enc"
 	}
+	dir := filepath.Join(iox.MustGetUserHome(), ".picl")
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return errx.Errf(err, "failed to create config dir at '%s'", dir)
+	}
 
-	path := filepath.Join(iox.MustGetUserHome(), ".picl", configName+ext)
+	path := filepath.Join(dir, configName+ext)
 	configFile, err := os.Create(path)
 	if err != nil {
-		return err
+		return errx.Errf(err, "failed to create config file at '%s'", path)
 	}
 	defer configFile.Close()
 

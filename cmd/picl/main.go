@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/picl/qctl"
 )
 
@@ -54,7 +55,7 @@ func main() {
 		},
 	}
 	if err := app.Run(os.Args); err != nil {
+		errx.PrintSomeStack(err)
 		log.Fatal().Err(err).Msg("")
-		os.Exit(-1)
 	}
 }
