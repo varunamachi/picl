@@ -393,8 +393,12 @@ func CreateConfigWithDefaults(name string) error {
 
 	}
 
-	pw := gtr.Secret("Password for encryption")
-	if err := generateConfig(&conf, name, true, pw); err != nil {
+	var pw string
+	encrypt := gtr.BoolOr("Do you want to encrypt the config?", false)
+	if encrypt {
+		pw = gtr.Secret("Password for encryption")
+	}
+	if err := generateConfig(&conf, name, encrypt, pw); err != nil {
 		return err
 	}
 
