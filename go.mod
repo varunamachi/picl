@@ -8,13 +8,13 @@ require (
 	github.com/fatih/color v1.12.0
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/google/uuid v1.3.0
-	github.com/labstack/echo/v4 v4.6.3
+	github.com/labstack/echo/v4 v4.7.2
 	github.com/pkg/sftp v1.13.2
 	github.com/shirou/gopsutil/v3 v3.21.9
 	github.com/stianeikeland/go-rpio/v4 v4.6.0
-	github.com/urfave/cli/v2 v2.3.0
-	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	github.com/urfave/cli/v2 v2.10.2
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 )
 
 require (
@@ -25,11 +25,12 @@ require (
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/miekg/dns v1.1.41 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 )
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/hashicorp/mdns v1.0.5
 	github.com/kr/fs v0.1.0 // indirect
@@ -44,8 +45,8 @@ require (
 	github.com/tklauser/numcpus v0.3.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
-	golang.org/x/sys v0.0.0-20220610221304-9f5ed59c137d // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	golang.org/x/net v0.0.0-20220617184016-355a448f1bc9 // indirect
+	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
+	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/text v0.3.7 // indirect
 )
