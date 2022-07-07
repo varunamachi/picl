@@ -97,7 +97,7 @@ func NewMonitor(
 			"disabling related features...")
 		// return nil, err
 	}
-	mon.server.AddEndpoints(getRelayEndpoints(mon.relayCtl)...)
+	mon.server.WithEndpoints(getRelayEndpoints(mon.relayCtl)...)
 	return mon, nil
 }
 
