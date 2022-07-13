@@ -24,6 +24,7 @@ func Command() *cli.Command {
 			setAllStatesCmd(),
 		},
 		Action: func(ctx *cli.Context) error {
+			fmt.Println("hello!")
 			return nil
 		},
 	}

@@ -77,12 +77,7 @@ func NewMonitor(
 			100*time.Millisecond)
 		if conf.AuthData != nil {
 
-			// TODO - have a proper user struct and login config
-			lc := httpx.LoginConfig{
-				LoginURL: "login",
-				UserOut:  nil,
-			}
-			if err := client.Login(gtx, &lc, *conf.AuthData); err != nil {
+			if err := Login(gtx, client, *conf.AuthData); err != nil {
 				msg := "failed to login to agent"
 				log.Error().Err(err).Str("conf", conf.Name).Msg(msg)
 				return nil, errx.Errf(err, msg, conf.Name)
