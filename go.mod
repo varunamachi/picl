@@ -8,22 +8,23 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/google/uuid v1.3.0
-	github.com/labstack/echo/v4 v4.7.2
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/pkg/sftp v1.13.5
 	github.com/shirou/gopsutil/v3 v3.22.6
 	github.com/stianeikeland/go-rpio/v4 v4.6.0
-	github.com/urfave/cli/v2 v2.11.1
+	github.com/urfave/cli/v2 v2.17.1
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 )
 
 require (
-	github.com/rs/zerolog v1.27.0
+	github.com/rs/zerolog v1.28.0
 	github.com/varunamachi/libx v0.0.0-20220802153927-8b431920e0c4
 )
 
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/lib/pq v1.10.7 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
