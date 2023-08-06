@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/varunamachi/libx"
 	"github.com/varunamachi/libx/errx"
-	"github.com/varunamachi/picl/qctl"
+	"github.com/varunamachi/picl/qctl/relayctl"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 			getCopyIdCmd(),
 			getEncryptCmd(),
 			getDecryptCmd(),
-			qctl.Command(),
+			relayctl.Command(),
 		},
 		Usage: "If no valid subcommand is given - it acts as 'exec' " +
 			"subcommand. I.e It treats the argument as a " +

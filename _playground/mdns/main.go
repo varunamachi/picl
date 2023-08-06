@@ -29,7 +29,7 @@ func main() {
 		Domain:              "._tcp.local",
 		Timeout:             time.Second * 3,
 		Entries:             entriesCh,
-		WantUnicastResponse: false, // TODO(reddaly): Change this default.
+		WantUnicastResponse: false,
 		DisableIPv4:         false,
 		DisableIPv6:         false,
 	})

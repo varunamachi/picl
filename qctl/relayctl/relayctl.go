@@ -1,4 +1,4 @@
-package qctl
+package relayctl
 
 import (
 	"errors"
