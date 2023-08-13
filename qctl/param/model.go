@@ -1,6 +1,9 @@
 package param
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type Type string
 
@@ -47,7 +50,7 @@ type TristateOpts struct {
 
 type Option struct {
 	Name  string `json:"name"`
-	Value any    `json:"value"`
+	Value string `json:"value"`
 }
 
 type ControlProps struct {
@@ -68,8 +71,25 @@ type ControlItem struct {
 }
 
 type ControlGroup struct {
-	Id    string        `json:"id"`
-	Name  string        `json:"name"`
-	Desc  string        `json:"desc"`
-	Items []ControlItem `json:"items"`
+	Id    string         `json:"id"`
+	Name  string         `json:"name"`
+	Desc  string         `json:"desc"`
+	Items []*ControlItem `json:"items"`
+}
+
+var (
+	ErrParamNotFound     = errors.New("qctl.paramNotFound")
+	ErrParamGetFailed    = errors.New("qctl.paramGetFailed")
+	ErrParamSetFailed    = errors.New("qctl.paramSetFailed")
+	ErrInvalidParamValue = errors.New("qctl.invalidParamValue")
+)
+
+type Operator interface {
+	Get() (any, error)
+	Set(value any) error
+	Default() any
+}
+
+type Value interface {
+	bool | string | Tristate | float64 | Range | DateRnage | time.Time
 }
