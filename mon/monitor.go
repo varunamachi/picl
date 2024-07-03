@@ -72,7 +72,7 @@ func NewMonitor(
 	}
 
 	for _, conf := range config.AgentConfig {
-		client := httpx.NewCustom(
+		client := httpx.NewCustomClient(
 			conf.Address, "/api/v0", httpx.DefaultTransport(),
 			100*time.Millisecond)
 		if conf.AuthData != nil {

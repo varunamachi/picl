@@ -45,7 +45,7 @@ func CreateClient(ctx *cli.Context) (
 			InsecureSkipVerify: ignCertErrs,
 		}
 	}
-	client := httpx.NewCustom(host, "", tp, time.Duration(timeOut)*time.Second)
+	client := httpx.NewCustomClient(host, "", tp, time.Duration(timeOut)*time.Second)
 
 	userId := ctx.String("user-id")
 	if userId == "" {
