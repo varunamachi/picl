@@ -178,7 +178,7 @@ func getRelayEndpoints(rc *RelayController) []*httpx.Endpoint {
 						Internal: err,
 					}
 				}
-				return etx.JSON(http.StatusOK, vals)
+				return httpx.SendJSON(etx, vals)
 			},
 		},
 		{
@@ -216,7 +216,7 @@ func getRelayEndpoints(rc *RelayController) []*httpx.Endpoint {
 						Internal: err,
 					}
 				}
-				return etx.JSON(http.StatusOK, vals)
+				return httpx.SendJSON(etx, vals)
 			},
 		},
 		{
@@ -277,7 +277,7 @@ func getRelayEndpoints(rc *RelayController) []*httpx.Endpoint {
 						Internal: err,
 					}
 				}
-				return etx.JSON(http.StatusOK, vals)
+				return httpx.SendJSON(etx, vals)
 			},
 		},
 		{

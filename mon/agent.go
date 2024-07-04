@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v3/host"
+	"github.com/varunamachi/libx/httpx"
 )
 
 func RunAgent(address string) error {
@@ -25,7 +26,7 @@ func handleSysInfo(etx echo.Context) error {
 		return err
 	}
 
-	return etx.JSON(http.StatusOK, info)
+	return httpx.SendJSON(etx, info)
 }
 
 func hostInfo(etx echo.Context) error {
@@ -47,7 +48,7 @@ func hostInfo(etx echo.Context) error {
 	humanUptime := fmt.Sprintf("%d Days, %d Hours, %d Minutes, %d Seconds",
 		days, hours, minute, seconds)
 
-	return etx.JSON(http.StatusOK, map[string]interface{}{
+	return httpx.SendJSON(etx, map[string]interface{}{
 		"hostname":    h.Hostname,
 		"hostId":      h.HostID,
 		"kernalArch":  h.KernelArch,
