@@ -3,7 +3,6 @@ package xcutr
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/user"
@@ -302,7 +301,7 @@ func GetPrivateKeyFileContent(opts *SshConnOpts) ([]byte, error) {
 	if opts.KeyFile != "" {
 		pkFile = filepath.Join(home, ".ssh", opts.KeyFile)
 	}
-	key, err := ioutil.ReadFile(pkFile)
+	key, err := os.ReadFile(pkFile)
 	if err != nil {
 		const msg = "Unable read the private key"
 		log.Error().Err(err).Msg("")
@@ -324,7 +323,7 @@ func GetPublicKeyFileContent() (string, error) {
 		pkFile = filepath.Join(home, ".ssh", "id_ed25519.pub")
 	}
 
-	key, err := ioutil.ReadFile(pkFile)
+	key, err := os.ReadFile(pkFile)
 	if err != nil {
 		const msg = "Unable read the public key"
 		log.Error().Err(err).Msg("")
