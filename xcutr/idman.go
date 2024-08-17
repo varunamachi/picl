@@ -30,12 +30,12 @@ type AuthzKeysRow struct {
 func CopyId(sshCfg []*SshConnOpts) error {
 	pubKey, err := GetPublicKeyFileContent()
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	pubRow, err := processLine(strings.TrimSpace(pubKey))
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	failures := 0
@@ -108,7 +108,7 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 	rows, err := cpr.readAuthorizedKeys()
 	if err != nil {
 		cpr.err("failed to read authrozied_keys file: %s", err.Error())
-		return err
+		return errx.Wrap(err)
 	}
 
 	backupFilePath := ""
@@ -155,14 +155,14 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 			"failed to create parent directories '%s' for authorized keys file",
 			parent)
 		cpr.err(err.Error())
-		return err
+		return errx.Wrap(err)
 	}
 
 	file, err := cpr.fcon.Create(cpr.authzKeyPath)
 	if err != nil {
 		err = errx.Errf(err, "failed to create/open authorized_keys to write")
 		cpr.err(err.Error())
-		return err
+		return errx.Wrap(err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -173,7 +173,7 @@ func (cpr *idMan) copyId(pubKey *AuthzKeysRow) error {
 	if err = cpr.writeAuthorizedKeys(file, rows); err != nil {
 		err = errx.Errf(err, "failed to update authorized_keys file")
 		cpr.err(err.Error())
-		return err
+		return errx.Wrap(err)
 	}
 
 	success = true
@@ -245,7 +245,7 @@ func (cpr *idMan) verifyConnection() error {
 	copy.AuthMehod = SshAuthPublicKey
 	conn, err := NewConn(&copy)
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 	return conn.Close()
 

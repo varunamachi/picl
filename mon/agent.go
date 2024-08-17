@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v3/host"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/libx/httpx"
 )
 
@@ -23,7 +24,7 @@ func RunAgent(address string) error {
 func handleSysInfo(etx echo.Context) error {
 	info, err := systemInfo(etx.Request().Context())
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	return httpx.SendJSON(etx, info)

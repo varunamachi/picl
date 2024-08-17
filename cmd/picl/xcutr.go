@@ -24,12 +24,12 @@ func getExecCmd() *cli.Command {
 
 			cmdMan, opts, err := getCmdMgrAndOpts(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			cmd := strings.Join(ctx.Args().Slice(), " ")
 			if err := cmdMan.Exec(cmd, opts); err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			return nil
 		},
@@ -75,10 +75,10 @@ func getPullCmd() *cli.Command {
 
 			cmdMan, _, err := getCmdMgrAndOpts(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			err = cmdMan.Pull(parts[0], parts[1], local)
-			return err
+			return errx.Wrap(err)
 		},
 	}
 }
@@ -114,7 +114,7 @@ func getPushCmd() *cli.Command {
 			policy := toFileConfictPolicy(ctx.String("fileConflictPolicy"))
 			cmdMan, opts, err := getCmdMgrAndOpts(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			copyOpts := xcutr.CopyOpts{
 				ExecOpts:      *opts,
@@ -160,7 +160,7 @@ func getReplicateCmd() *cli.Command {
 
 			cmdMan, opts, err := getCmdMgrAndOpts(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			copyOpts := xcutr.CopyOpts{
 				ExecOpts:      *opts,

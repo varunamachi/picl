@@ -98,7 +98,7 @@ func (conn *SshConn) PrintOpts() {
 
 func (conn *SshConn) Close() error {
 	if err := conn.client.Close(); err != nil && err != io.EOF {
-		return err
+		return errx.Wrap(err)
 	}
 	return nil
 }
@@ -106,7 +106,7 @@ func (conn *SshConn) Close() error {
 func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 	sess, err := conn.createSession()
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	if stdIO == nil {
@@ -132,7 +132,7 @@ func (conn *SshConn) Exec(cmd string, stdIO *StdIO) error {
 func (conn *SshConn) ExecSudo(cmd string, stdIO *StdIO) error {
 	sess, err := conn.createSession()
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	if stdIO == nil {

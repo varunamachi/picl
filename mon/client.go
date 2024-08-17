@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/libx/httpx"
 	"github.com/varunamachi/libx/iox"
 )
@@ -27,7 +28,7 @@ func Login(
 	rr := client.Post(gtx, authData, "/api/v1/auth/user")
 	lres := &loginResult{}
 	if err := rr.LoadClose(&lres); err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 	client.SetToken(lres.Token)
 	return nil

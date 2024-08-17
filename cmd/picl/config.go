@@ -60,7 +60,7 @@ func getCopyIdCmd() *cli.Command {
 		Action: func(ctx *cli.Context) error {
 			provider, err := config.NewFromCli(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			return config.CopySshId(provider)
 		},
@@ -102,7 +102,7 @@ func getEncryptCmd() *cli.Command {
 			if !iox.ExistsAsFile(cfgPath) {
 				err := fmt.Errorf("could not find config for '%s'", cfg)
 				log.Error().Err(err).Msg("")
-				return err
+				return errx.Wrap(err)
 			}
 
 			var pw string
@@ -162,7 +162,7 @@ func getDecryptCmd() *cli.Command {
 			if !iox.ExistsAsFile(cfgPath) {
 				err := fmt.Errorf("could not find config for '%s'", cfg)
 				log.Error().Err(err).Msg("")
-				return err
+				return errx.Wrap(err)
 			}
 
 			var pw string
@@ -184,7 +184,7 @@ func getDecryptCmd() *cli.Command {
 			err = iox.DecryptFromFile(cfgPath, pw, outFile)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to decrypt file")
-				return err
+				return errx.Wrap(err)
 			}
 
 			return nil

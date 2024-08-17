@@ -120,7 +120,7 @@ func (mon *Monitor) Run(
 				return gtx.Err()
 			case resp := <-out:
 				if err := mon.handler.Handle(gtx, resp); err != nil {
-					return err
+					return errx.Wrap(err)
 				}
 			}
 		}
@@ -153,7 +153,7 @@ func (mon *Monitor) poll(
 					res := client.Get(gtx, "/cur")
 					if err := res.LoadClose(&info); err != nil {
 						dataOut <- &AgentResponse{Index: index, Err: err}
-						return err
+						return errx.Wrap(err)
 					}
 					dataOut <- &AgentResponse{Index: index, Data: info}
 					return nil

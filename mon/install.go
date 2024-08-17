@@ -95,12 +95,12 @@ func BuildAndInstall(cmdMan *xcutr.CmdMan, fxRootPath, goArch string) error {
 	log.Info().Str("goArch", goArch).Msg("Building the executable")
 	output, err := Build(fxRootPath, goArch)
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	log.Info().Msg("Deploying executable")
 	if err := InstallAgent(cmdMan, output); err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	return nil

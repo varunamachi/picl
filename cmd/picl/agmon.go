@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"github.com/varunamachi/libx/errx"
 	"github.com/varunamachi/libx/httpx"
 	"github.com/varunamachi/picl/config"
 	"github.com/varunamachi/picl/mon"
@@ -63,14 +64,14 @@ func getMonitorCmd() *cli.Command {
 
 			provider, err := config.NewFromCli(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			monConfig := provider.MonitorConfig()
 
 			hdl, gtx, err := newHandler(handler, monConfig)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			var printer io.Writer
 			if handler != "tui" {
@@ -91,11 +92,11 @@ func getMonitorCmd() *cli.Command {
 
 			if err != nil {
 				log.Error().Err(err).Msg("failed to initialize monitor")
-				return err
+				return errx.Wrap(err)
 			}
 			if err = monitor.Run(gtx, uint32(port)); err != nil {
 				log.Error().Err(err).Msg("failed to run monitor")
-				return err
+				return errx.Wrap(err)
 			}
 
 			return nil
@@ -161,7 +162,7 @@ func getBuildInstallCmd() *cli.Command {
 
 			provider, err := config.NewFromCli(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			cmdMan, err := xcutr.NewCmdMan(
@@ -171,11 +172,11 @@ func getBuildInstallCmd() *cli.Command {
 					In:  os.Stdin,
 				})
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			if err := mon.BuildAndInstall(cmdMan, root, arch); err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			return nil

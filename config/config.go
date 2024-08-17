@@ -299,12 +299,12 @@ func CreateConfig(name string) error {
 	}
 
 	if err := generateConfig(&conf, name, encrypt, pw); err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	provider, err := new(&conf)
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	copyId := gtr.BoolOr("Copy SSH Public Key to Nodes (ssh-copy-id)? ", true)
@@ -316,7 +316,7 @@ func CreateConfig(name string) error {
 		}
 
 		if err := xcutr.CopyId(opts); err != nil {
-			return err
+			return errx.Wrap(err)
 		}
 	}
 
@@ -399,17 +399,17 @@ func CreateConfigWithDefaults(name string) error {
 		pw = gtr.Secret("Password for encryption")
 	}
 	if err := generateConfig(&conf, name, encrypt, pw); err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	provider, err := new(&conf)
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 	copyId := gtr.BoolOr("Copy SSH Public Key to Nodes (ssh-copy-id)? ", true)
 	if copyId {
 		if err = CopySshId(provider); err != nil {
-			return err
+			return errx.Wrap(err)
 		}
 	}
 
@@ -423,7 +423,7 @@ func CopySshId(provider Provider) error {
 	}
 
 	if err := xcutr.CopyId(opts); err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 	return nil
 }
@@ -432,7 +432,7 @@ func generateConfig(
 	config *PiclConfig, configName string, encrypt bool, pw string) error {
 	jsonData, err := json.MarshalIndent(config, "", "    ")
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	ext := ".config.json"
@@ -454,12 +454,12 @@ func generateConfig(
 	if encrypt {
 		jsonData, err = iox.NewCryptor(pw).Encrypt(jsonData)
 		if err != nil {
-			return err
+			return errx.Wrap(err)
 		}
 		_, err = configFile.Write(jsonData)
-		return err
+		return errx.Wrap(err)
 	}
 
 	_, err = configFile.WriteString(string(jsonData))
-	return err
+	return errx.Wrap(err)
 }

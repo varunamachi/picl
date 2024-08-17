@@ -257,7 +257,7 @@ func (cm *CmdMan) PushData(
 			reader := bytes.NewBuffer(data)
 			err := copy(conn, remotePath, opts.DupFilePolicy, reader)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			if opts.WithSudo {
@@ -279,7 +279,7 @@ func (cm *CmdMan) PushData(
 
 	err := eg.Wait()
 	if err != nil {
-		return err
+		return errx.Wrap(err)
 	}
 
 	return nil

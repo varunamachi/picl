@@ -73,12 +73,12 @@ func main() {
 			}
 			cmdMan, opts, err := getCmdMgrAndOpts(ctx)
 			if err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 
 			cmd := strings.Join(ctx.Args().Slice(), " ")
 			if err := cmdMan.Exec(cmd, opts); err != nil {
-				return err
+				return errx.Wrap(err)
 			}
 			return nil
 		},
