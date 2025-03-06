@@ -1,7 +1,7 @@
 #!/bin/bash
 
 scriptDir="$(cd "$(dirname "$0")" || exit ; pwd -P)"
-root=$(readlink -f $scriptDir/../..)
+root=$(readlink -f "$scriptDir/../..")
 
 HOST=${REMOTE_HOST:-"oldman"} # Change based on your setup
 USER=${REMOTE_USER:-"pi"}
@@ -19,8 +19,8 @@ if [[ ! -d "$buildPath" ]]; then
 fi
 
 echo "Bulding..."
-cd "cmd/picl" || exit -1
-GOARCH=arm GOOS=linux go build -ldflags "-s -w" -o  "$buildPath" || exit -1
+cd "cmd/picl" || exit 1
+GOARCH=arm GOOS=linux go build -ldflags "-s -w" -o  "$buildPath" || exit 1
 echo "Generated at $buildPath"
 
 rsync -avz -e ssh "$buildPath/picl" "$USER@$HOST:/opt/bin"
